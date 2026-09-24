@@ -1,0 +1,22 @@
+func int fib(int n) {
+    if (n <= 1) {
+        return n
+    }
+    return fib(n - 1) + fib(n - 2)
+}
+
+main
+print("Loop counter A_Index:\n")
+Loop, 5 {
+    print(A_Index)
+}
+
+print("Computing fib(10):\n")
+int result := fib(10)
+print(result)
+
+print("Negative number test:\n")
+int neg := 10 - 50
+print(neg)
+
+exit(0)

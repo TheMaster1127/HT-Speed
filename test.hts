@@ -1,0 +1,37 @@
+func int multiply(int a, int b) {
+    return a * b
+}
+
+func int compute(int x, int y) {
+    return multiply(x, y) + 2
+}
+
+main
+int factor := 5
+int count := 3
+int answer := compute(factor, 8)
+
+// Check if compute(5, 8) = 42
+if (answer = 42) {
+    print("[PASS] Function calls and math returned 42!\n")
+} else {
+    print("[FAIL] Unexpected math result!\n")
+}
+
+// Loop using a variable (count = 3)
+print("[*] Starting loop over variable...\n")
+Loop, count {
+    // A_Index works inside comparisons!
+    if (A_Index = 0) {
+        print(" -> Iteration 0 (A_Index = 0)\n")
+    }
+    if (A_Index = 1) {
+        print(" -> Iteration 1 (A_Index = 1)\n")
+    }
+    if (A_Index = 2) {
+        print(" -> Iteration 2 (A_Index = 2)\n")
+    }
+}
+
+print("[+] All tests completed successfully!\n")
+exit(0)
