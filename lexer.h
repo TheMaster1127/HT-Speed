@@ -6,11 +6,13 @@
 typedef enum {
     TOK_EOF, TOK_INT_LIT, TOK_STR_LIT, TOK_IDENT,
     TOK_FUNC, TOK_MAIN, TOK_RETURN, TOK_IF, TOK_ELSE,
-    TOK_LOOP, TOK_SYSCALL, TOK_PRINT, TOK_EXIT,
-    TOK_TYPE_INT, TOK_TYPE_STR, TOK_TYPE_BOOL, TOK_TYPE_VOID,
+    TOK_LOOP, TOK_WHILE, TOK_BREAK, TOK_CONTINUE,
+    TOK_SYSCALL, TOK_ALLOC, TOK_PRINT, TOK_EXIT,
+    TOK_TYPE_INT, TOK_TYPE_STR, TOK_TYPE_BOOL, TOK_TYPE_VOID, TOK_BYTE,
     TOK_A_INDEX, TOK_ASSIGN, TOK_EQ, TOK_NE, TOK_LT, TOK_LE,
     TOK_GT, TOK_GE, TOK_PLUS, TOK_MINUS, TOK_STAR, TOK_SLASH,
-    TOK_PERCENT, TOK_LPAREN, TOK_RPAREN, TOK_LBRACE, TOK_RBRACE, TOK_COMMA
+    TOK_PERCENT, TOK_LPAREN, TOK_RPAREN, TOK_LBRACE, TOK_RBRACE,
+    TOK_LBRACKET, TOK_RBRACKET, TOK_COMMA
 } TokenKind;
 
 typedef struct {
@@ -34,6 +36,10 @@ static void skip_whitespace_and_comments(void) {
         } else if (*src == '#') {
             src++;
             while (*src && *src != '\n') src++;
+        } else if (*src == '/' && *(src + 1) == '*') {
+            src += 2;
+            while (*src && !(*src == '*' && *(src + 1) == '/')) src++;
+            if (*src) src += 2;
         } else {
             break;
         }
@@ -84,13 +90,18 @@ static void next_token(void) {
         else if (m_strcmp(cur_tok.str_val, "if") == 0) cur_tok.kind = TOK_IF;
         else if (m_strcmp(cur_tok.str_val, "else") == 0) cur_tok.kind = TOK_ELSE;
         else if (m_strcmp(cur_tok.str_val, "Loop") == 0) cur_tok.kind = TOK_LOOP;
+        else if (m_strcmp(cur_tok.str_val, "while") == 0) cur_tok.kind = TOK_WHILE;
+        else if (m_strcmp(cur_tok.str_val, "break") == 0) cur_tok.kind = TOK_BREAK;
+        else if (m_strcmp(cur_tok.str_val, "continue") == 0) cur_tok.kind = TOK_CONTINUE;
         else if (m_strcmp(cur_tok.str_val, "syscall") == 0) cur_tok.kind = TOK_SYSCALL;
+        else if (m_strcmp(cur_tok.str_val, "alloc") == 0) cur_tok.kind = TOK_ALLOC;
         else if (m_strcmp(cur_tok.str_val, "print") == 0) cur_tok.kind = TOK_PRINT;
         else if (m_strcmp(cur_tok.str_val, "exit") == 0) cur_tok.kind = TOK_EXIT;
         else if (m_strcmp(cur_tok.str_val, "int") == 0) cur_tok.kind = TOK_TYPE_INT;
         else if (m_strcmp(cur_tok.str_val, "str") == 0) cur_tok.kind = TOK_TYPE_STR;
         else if (m_strcmp(cur_tok.str_val, "bool") == 0) cur_tok.kind = TOK_TYPE_BOOL;
         else if (m_strcmp(cur_tok.str_val, "void") == 0) cur_tok.kind = TOK_TYPE_VOID;
+        else if (m_strcmp(cur_tok.str_val, "byte") == 0) cur_tok.kind = TOK_BYTE;
         else if (m_strcmp(cur_tok.str_val, "A_Index") == 0) cur_tok.kind = TOK_A_INDEX;
         else cur_tok.kind = TOK_IDENT;
         return;
@@ -114,6 +125,8 @@ static void next_token(void) {
         case ')': cur_tok.kind = TOK_RPAREN; break;
         case '{': cur_tok.kind = TOK_LBRACE; break;
         case '}': cur_tok.kind = TOK_RBRACE; break;
+        case '[': cur_tok.kind = TOK_LBRACKET; break;
+        case ']': cur_tok.kind = TOK_RBRACKET; break;
         case ',': cur_tok.kind = TOK_COMMA; break;
         default:
             m_print("Unknown character in lexer\n");

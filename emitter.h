@@ -3,6 +3,9 @@
 
 #include "core.h"
 
+#define MAX_LOOP_DEPTH 16
+#define MAX_LOOP_BREAKS 64
+
 typedef struct {
     char name[64];
     int stack_offset;
@@ -23,6 +26,17 @@ typedef struct {
     size_t offset;
     size_t len;
 } StringEntry;
+
+typedef struct {
+    size_t start_offset;
+    size_t break_patches[MAX_LOOP_BREAKS];
+    size_t break_count;
+    size_t continue_patches[MAX_LOOP_BREAKS];
+    size_t continue_count;
+    int is_counted;
+    int index_offset;
+    int limit_offset;
+} LoopContext;
 
 typedef struct {
     uint8_t code[MAX_CODE];
@@ -46,14 +60,17 @@ typedef struct {
     } str_relocs[MAX_FIXUPS];
     size_t str_reloc_count;
 
+    size_t int_print_patches[MAX_FIXUPS];
+    size_t int_print_patch_count;
+
     StringEntry strings[MAX_FIXUPS];
     size_t string_count;
 
-    size_t print_int_offset;
+    int needs_print_int;
+    int has_exited;
 
+    LoopContext loops[MAX_LOOP_DEPTH];
     int loop_depth;
-    int loop_index_offset[16];
-    int loop_limit_offset[16];
 } Compiler;
 
 static Compiler C;
@@ -85,12 +102,11 @@ static Function *find_func(const char *name) {
     return 0;
 }
 
-// --- String Deduplication ---
 static size_t add_string_literal(const char *str, size_t len) {
     for (size_t i = 0; i < C.string_count; i++) {
         if (C.strings[i].len == len) {
             if (m_memcmp(&C.data[C.strings[i].offset], str, len) == 0) {
-                return C.strings[i].offset; // Reuse existing string offset!
+                return C.strings[i].offset;
             }
         }
     }
@@ -103,57 +119,65 @@ static size_t add_string_literal(const char *str, size_t len) {
     return off;
 }
 
-// --- Native x86-64 itoa + sys_write Runtime Function (111 bytes) ---
-static void emit_print_int_runtime(void) {
-    C.print_int_offset = C.code_len;
+// Emits the 111-byte itoa runtime only when needed
+static size_t emit_print_int_runtime(void) {
+    size_t offset = C.code_len;
 
     static const uint8_t print_int_bytes[] = {
-        0x48, 0x83, 0xEC, 0x28,                         // sub rsp, 40 (16-byte aligned)
-        0x48, 0x8D, 0x74, 0x24, 0x27,                   // lea rsi, [rsp + 39]
-        0xC6, 0x06, 0x0A,                               // mov byte ptr [rsi], 10 ('\n')
-        0x41, 0xB8, 0x01, 0x00, 0x00, 0x00,             // mov r8d, 1 (length counter)
-        0x48, 0xBB, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov rbx, 10
-        0x48, 0x85, 0xC0,                               // test rax, rax
-        0x75, 0x0B,                                     // jne .L_check_neg (+11)
-        0x48, 0xFF, 0xCE,                               // dec rsi
-        0xC6, 0x06, 0x30,                               // mov byte ptr [rsi], '0'
-        0x41, 0xFF, 0xC0,                               // inc r8d
-        0xEB, 0x33,                                     // jmp .L_write (+51)
-        // .L_check_neg (offset +0x2C):
-        0x45, 0x31, 0xC9,                               // xor r9d, r9d
-        0x48, 0x85, 0xC0,                               // test rax, rax
-        0x79, 0x06,                                     // jns .L_loop (+6)
-        0x41, 0xFF, 0xC1,                               // inc r9d
-        0x48, 0xF7, 0xD8,                               // neg rax
-        // .L_loop (offset +0x3A):
-        0x48, 0x85, 0xC0,                               // test rax, rax
-        0x74, 0x12,                                     // je .L_check_sign (+18)
-        0x31, 0xD2,                                     // xor edx, edx
-        0x48, 0xF7, 0xF3,                               // div rbx
-        0x80, 0xC2, 0x30,                               // add dl, '0'
-        0x48, 0xFF, 0xCE,                               // dec rsi
-        0x88, 0x16,                                     // mov [rsi], dl
-        0x41, 0xFF, 0xC0,                               // inc r8d
-        0xEB, 0xE9,                                     // jmp .L_loop (-23)
-        // .L_check_sign (offset +0x51):
-        0x45, 0x85, 0xC9,                               // test r9d, r9d
-        0x74, 0x09,                                     // je .L_write (+9)
-        0x48, 0xFF, 0xCE,                               // dec rsi
-        0xC6, 0x06, 0x2D,                               // mov byte ptr [rsi], '-'
-        0x41, 0xFF, 0xC0,                               // inc r8d
-        // .L_write (offset +0x5F):
-        0x6A, 0x01, 0x58,                               // push 1; pop rax (sys_write)
-        0x6A, 0x01, 0x5F,                               // push 1; pop rdi (stdout)
-        0x4C, 0x89, 0xC2,                               // mov rdx, r8 (length)
-        0x0F, 0x05,                                     // syscall
-        0x48, 0x83, 0xC4, 0x28,                         // add rsp, 40
-        0xC3                                            // ret
+        0x48, 0x83, 0xEC, 0x28,
+        0x48, 0x8D, 0x74, 0x24, 0x27,
+        0xC6, 0x06, 0x0A,
+        0x41, 0xB8, 0x01, 0x00, 0x00, 0x00,
+        0x48, 0xBB, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x48, 0x85, 0xC0,
+        0x75, 0x0B,
+        0x48, 0xFF, 0xCE,
+        0xC6, 0x06, 0x30,
+        0x41, 0xFF, 0xC0,
+        0xEB, 0x33,
+        0x45, 0x31, 0xC9,
+        0x48, 0x85, 0xC0,
+        0x79, 0x06,
+        0x41, 0xFF, 0xC1,
+        0x48, 0xF7, 0xD8,
+        0x48, 0x85, 0xC0,
+        0x74, 0x12,
+        0x31, 0xD2,
+        0x48, 0xF7, 0xF3,
+        0x80, 0xC2, 0x30,
+        0x48, 0xFF, 0xCE,
+        0x88, 0x16,
+        0x41, 0xFF, 0xC0,
+        0xEB, 0xE9,
+        0x45, 0x85, 0xC9,
+        0x74, 0x09,
+        0x48, 0xFF, 0xCE,
+        0xC6, 0x06, 0x2D,
+        0x41, 0xFF, 0xC0,
+        0x6A, 0x01, 0x58,
+        0x6A, 0x01, 0x5F,
+        0x4C, 0x89, 0xC2,
+        0x0F, 0x05,
+        0x48, 0x83, 0xC4, 0x28,
+        0xC3
     };
 
     emit_bytes(print_int_bytes, sizeof(print_int_bytes));
+    return offset;
 }
 
 static void finalize_bin(void) {
+    // 1. If program printed integers, emit runtime at the end and patch calls
+    if (C.needs_print_int) {
+        size_t runtime_offset = emit_print_int_runtime();
+        for (size_t i = 0; i < C.int_print_patch_count; i++) {
+            size_t patch = C.int_print_patches[i];
+            int32_t disp = (int32_t)(runtime_offset - (patch + 4));
+            m_memcpy(&C.code[patch], &disp, 4);
+        }
+    }
+
+    // 2. Resolve function calls
     for (size_t i = 0; i < C.fixup_count; i++) {
         Function *fn = find_func(C.func_fixups[i].target_func);
         if (!fn || !fn->is_defined) { m_print("Link Error: Undefined function\n"); k_exit(1); }
@@ -161,6 +185,8 @@ static void finalize_bin(void) {
         int32_t disp = (int32_t)(fn->code_offset - (patch + 4));
         m_memcpy(&C.code[patch], &disp, 4);
     }
+
+    // 3. Resolve string displacements
     for (size_t i = 0; i < C.str_reloc_count; i++) {
         size_t patch = C.str_relocs[i].patch_site;
         size_t target = C.code_len + C.str_relocs[i].data_offset;
@@ -171,7 +197,7 @@ static void finalize_bin(void) {
 
 static void write_elf_file(const char *out_path, size_t main_entry_offset) {
     uint64_t base_vaddr = 0x400000;
-    uint64_t header_size = sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr); // 120 bytes
+    uint64_t header_size = sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr);
     uint64_t payload_size = C.code_len + C.data_len;
     uint64_t total_size = header_size + payload_size;
 
@@ -181,12 +207,12 @@ static void write_elf_file(const char *out_path, size_t main_entry_offset) {
     ehdr.e_ident[1] = 'E';
     ehdr.e_ident[2] = 'L';
     ehdr.e_ident[3] = 'F';
-    ehdr.e_ident[4] = 2; // ELFCLASS64
-    ehdr.e_ident[5] = 1; // ELFDATA2LSB
-    ehdr.e_ident[6] = 1; // EV_CURRENT
-    ehdr.e_ident[7] = 0; // ELFOSABI_SYSV
-    ehdr.e_type = 2;     // ET_EXEC
-    ehdr.e_machine = 62; // EM_X86_64
+    ehdr.e_ident[4] = 2;
+    ehdr.e_ident[5] = 1;
+    ehdr.e_ident[6] = 1;
+    ehdr.e_ident[7] = 0;
+    ehdr.e_type = 2;
+    ehdr.e_machine = 62;
     ehdr.e_version = 1;
     ehdr.e_entry = base_vaddr + header_size + main_entry_offset;
     ehdr.e_phoff = sizeof(Elf64_Ehdr);
@@ -196,8 +222,8 @@ static void write_elf_file(const char *out_path, size_t main_entry_offset) {
 
     Elf64_Phdr phdr;
     m_memset(&phdr, 0, sizeof(phdr));
-    phdr.p_type = 1;     // PT_LOAD
-    phdr.p_flags = 7;    // PF_R | PF_W | PF_X
+    phdr.p_type = 1;
+    phdr.p_flags = 7;
     phdr.p_offset = 0;
     phdr.p_vaddr = base_vaddr;
     phdr.p_paddr = base_vaddr;
@@ -205,7 +231,7 @@ static void write_elf_file(const char *out_path, size_t main_entry_offset) {
     phdr.p_memsz = total_size;
     phdr.p_align = 0x1000;
 
-    int out_fd = k_open(out_path, 577 /* O_CREAT|O_WRONLY|O_TRUNC */, 0755);
+    int out_fd = k_open(out_path, 577, 0755);
     if (out_fd < 0) {
         m_print("Error: Could not create output binary\n");
         k_exit(1);

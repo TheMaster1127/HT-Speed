@@ -1,0 +1,14 @@
+main
+print("Type something and press ENTER:\n")
+
+// 1. sys_read(stdin=0, buffer, count=64)
+// The user types into the 64-byte string buffer in memory
+syscall(0, 0, "                                                                \n", 64)
+
+print("You typed:\n")
+
+// 2. sys_write(stdout=1, buffer, count=64)
+// Writes those 64 bytes directly back to the terminal!
+syscall(1, 1, "                                                                \n", 64)
+
+exit(0)

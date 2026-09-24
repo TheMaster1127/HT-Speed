@@ -1,0 +1,42 @@
+main
+print("=== 1. While Loop with Break & Continue ===\n")
+int i := 0
+while (i < 10) {
+    i := i + 1
+    if (i = 3) {
+        continue
+    }
+    if (i = 7) {
+        break
+    }
+    print(i)
+}
+
+print("=== 2. Dynamic Heap Memory (alloc) ===\n")
+// Allocate 64 bytes on the heap via sys_mmap!
+int mem := alloc(64)
+
+// Store 64-bit int into [mem]
+[mem] := 1337
+print("Value read from [mem]:\n")
+print([mem])
+
+// Store byte into byte[mem + 8]
+byte[mem + 8] := 65 // 'A'
+print("Byte read from byte[mem + 8]:\n")
+print(byte[mem + 8])
+
+print("=== 3. Clean Echo (Zero Trailing Spaces) ===\n")
+print("Type a word and press ENTER:\n")
+
+// sys_read returns the exact byte count into 'typed_bytes'!
+int typed_bytes := syscall(0, 0, mem, 64)
+
+print("Echoed output (exact count):\n")
+// print(ptr, len) prints only the exact bytes read!
+print(mem, typed_bytes)
+
+print("Exact byte count:\n")
+print(typed_bytes)
+
+exit(0)

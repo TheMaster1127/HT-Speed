@@ -1,0 +1,16 @@
+main
+print("Testing nested loops:\n")
+
+Loop, 3 {
+    int row := A_Index
+    Loop, 2 {
+        int col := A_Index
+        if (row = 1) {
+            if (col = 1) {
+                print(" -> Hit Row 1, Col 1!\n")
+            }
+        }
+    }
+}
+print("Nested loops finished!\n")
+exit(0)

@@ -16,7 +16,6 @@ static void run_compiler(void) {
         k_exit(1);
     }
 
-    // 1. Read input file
     int in_fd = k_open(in_path, 0 /* O_RDONLY */, 0);
     if (in_fd < 0) {
         m_print("Error: Could not open input file\n");
@@ -33,15 +32,12 @@ static void run_compiler(void) {
     src_buf[bytes_read] = '\0';
     src = src_buf;
 
-    // 2. Initialize Compiler State
     m_memset(&C, 0, sizeof(C));
-    emit_print_int_runtime();
     next_token();
 
     size_t main_entry_offset = 0;
     int found_main = 0;
 
-    // 3. High-Level Parse Loop
     while (cur_tok.kind != TOK_EOF) {
         if (cur_tok.kind == TOK_FUNC) {
             next_token();
@@ -114,10 +110,12 @@ static void run_compiler(void) {
 
             while (cur_tok.kind != TOK_EOF) parse_statement();
 
-            // Auto-exit
-            emit_u8(0x6A); emit_u8(0x3C); emit_u8(0x58);
-            emit_u8(0x31); emit_u8(0xFF);
-            emit_u8(0x0F); emit_u8(0x05);
+            // Auto-exit only if explicit exit was NOT called!
+            if (!C.has_exited) {
+                emit_u8(0x6A); emit_u8(0x3C); emit_u8(0x58);
+                emit_u8(0x31); emit_u8(0xFF);
+                emit_u8(0x0F); emit_u8(0x05);
+            }
             break;
         }
 
