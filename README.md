@@ -410,7 +410,7 @@ HT-Speed v0.2 is designed for maximum compilation throughput and minimal binary 
 
 ## Author & Ecosystem
 
-Created by **TheMaster1127** (aka *Mr. Compiler*), 22-year-old low-level programmer, reverse engineer, and language designer based in Bulgaria.
+Created by **TheMaster1127** (aka *Mr. Compiler*), a low-level programmer, reverse engineer, and language designer.
 
 * **GitHub:** [@TheMaster1127](https://github.com/TheMaster1127)
 * **Related Projects:**
