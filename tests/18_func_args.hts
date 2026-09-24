@@ -1,0 +1,7 @@
+func int one() { return 1 }
+func int two() { return 2 }
+func int add(int a, int b) { return a + b }
+
+main
+print(add(one(), two()))
+exit(0)

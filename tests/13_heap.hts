@@ -1,0 +1,5 @@
+main
+int buf := alloc(64)
+[buf] := 12345
+print([buf])
+exit(0)

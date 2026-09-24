@@ -1,0 +1,11 @@
+main
+Loop, 10 {
+    if (A_Index = 3) {
+        continue
+    }
+    if (A_Index = 6) {
+        break
+    }
+    print(A_Index)
+}
+exit(0)

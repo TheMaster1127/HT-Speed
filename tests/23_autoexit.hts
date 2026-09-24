@@ -1,0 +1,2 @@
+main
+print("no explicit exit\n")

@@ -1,0 +1,13 @@
+func int add(int a, int b) {
+    return a + b
+}
+
+func int mul(int a, int b) {
+    return a * b
+}
+
+main
+int x := add(3, 4)
+int y := mul(x, 2)
+print(y)
+exit(0)

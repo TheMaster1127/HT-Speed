@@ -1,0 +1,12 @@
+main
+int x := 5
+if (x > 0) {
+    if (x > 3) {
+        print("big\n")
+    } else {
+        print("small\n")
+    }
+} else {
+    print("neg\n")
+}
+exit(0)

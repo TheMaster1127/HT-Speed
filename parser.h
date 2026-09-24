@@ -296,7 +296,11 @@ static void parse_statement(void) {
             C.str_relocs[C.str_reloc_count].data_offset = str_offset;
             C.str_reloc_count++;
             emit_u32(0);
-            emit_u8(0x6A); emit_u8((uint8_t)str_len); emit_u8(0x5A);
+            if (str_len <= 127) {
+                emit_u8(0x6A); emit_u8((uint8_t)str_len); emit_u8(0x5A); // push imm8; pop rdx (3 bytes)
+            } else {
+                emit_u8(0xBA); emit_u32((uint32_t)str_len);               // mov edx, imm32 (5 bytes, zero-extends!)
+            }
             emit_u8(0x0F); emit_u8(0x05);
         } else {
             parse_expression();

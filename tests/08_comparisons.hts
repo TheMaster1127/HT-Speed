@@ -1,0 +1,8 @@
+main
+if (5 = 5) { print("eq\n") }
+if (5 != 3) { print("ne\n") }
+if (3 < 5) { print("lt\n") }
+if (5 > 3) { print("gt\n") }
+if (3 <= 3) { print("le\n") }
+if (5 >= 5) { print("ge\n") }
+exit(0)

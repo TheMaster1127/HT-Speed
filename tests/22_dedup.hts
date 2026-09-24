@@ -1,0 +1,5 @@
+main
+print("repeat\n")
+print("repeat\n")
+print("repeat\n")
+exit(0)

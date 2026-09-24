@@ -1,0 +1,11 @@
+func int a(int x) {
+    return b(x) + 1
+}
+
+func int b(int x) {
+    return x * 2
+}
+
+main
+print(a(5))
+exit(0)

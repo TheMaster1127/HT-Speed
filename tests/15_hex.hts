@@ -1,0 +1,6 @@
+main
+int x := 0xFF
+int y := 0x10
+print(x)
+print(y)
+exit(0)

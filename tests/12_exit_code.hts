@@ -1,0 +1,4 @@
+main
+print("before exit\n")
+exit(42)
+print("this should not print\n")

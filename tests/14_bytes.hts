@@ -1,0 +1,7 @@
+main
+int buf := alloc(16)
+byte[buf + 0] := 72
+byte[buf + 1] := 105
+byte[buf + 2] := 10
+print(buf, 3)
+exit(0)
