@@ -47,6 +47,14 @@ static void parse_primary(void) {
         C.str_reloc_count++;
         emit_u32(0);
         next_token();
+    } else if (cur_tok.kind == TOK_GETPARAMS) {
+        next_token();
+        expect(TOK_LPAREN);
+        expect(TOK_RPAREN);
+        C.needs_getparams = 1;
+        emit_u8(0xE8);
+        C.getparams_patches[C.getparams_patch_count++] = C.code_len;
+        emit_u32(0);
     } else if (cur_tok.kind == TOK_SYSCALL) {
         next_token();
         parse_syscall_call();
@@ -64,6 +72,10 @@ static void parse_primary(void) {
         emit_u8(0x45); emit_u8(0x31); emit_u8(0xC9);
         emit_u8(0xB8); emit_u32(9);
         emit_u8(0x0F); emit_u8(0x05);
+    } else if (cur_tok.kind == TOK_BIT_NOT) {
+        next_token();
+        parse_primary();
+        emit_u8(0x48); emit_u8(0xF7); emit_u8(0xD0);
     } else if (cur_tok.kind == TOK_LBRACKET) {
         next_token();
         parse_expression();
@@ -76,10 +88,7 @@ static void parse_primary(void) {
         expect(TOK_RBRACKET);
         emit_u8(0x48); emit_u8(0x0F); emit_u8(0xB6); emit_u8(0x00);
     } else if (cur_tok.kind == TOK_A_INDEX) {
-        if (C.loop_depth == 0) {
-            m_print("Error: A_Index used outside of a loop\n");
-            k_exit(1);
-        }
+        if (C.loop_depth == 0) { m_print("Error: A_Index outside loop\n"); k_exit(1); }
         int offset = C.loops[C.loop_depth - 1].index_offset;
         emit_u8(0x48); emit_u8(0x8B); emit_u8(0x85);
         emit_u32((uint32_t)(-offset));
@@ -92,6 +101,33 @@ static void parse_primary(void) {
         char name[64];
         m_strncpy(name, cur_tok.str_val, 63);
         next_token();
+
+        // Check if next is a struct property access (peek ahead)
+        if (cur_tok.kind == TOK_DOT) {
+            const char *p = src;
+            while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+            if (m_isalpha(*p) || *p == '_') {
+                char peek_field[64];
+                size_t pl = 0;
+                while ((m_isalnum(*p) || *p == '_') && pl < 63) peek_field[pl++] = *p++;
+                peek_field[pl] = '\0';
+
+                int f_off = find_field_offset(peek_field);
+                if (f_off >= 0) {
+                    // It IS a struct field! Consume '.' and the field name
+                    next_token(); // consume '.'
+                    next_token(); // consume field
+                    int l_off = find_local(name);
+                    if (l_off >= 0) {
+                        emit_u8(0x48); emit_u8(0x8B); emit_u8(0x85); emit_u32((uint32_t)(-l_off));
+                        emit_u8(0x48); emit_u8(0x8B); emit_u8(0x80); emit_u32((uint32_t)f_off);
+                        return;
+                    }
+                }
+            }
+            // If f_off < 0: it's NOT a struct field, do NOT consume '.'!
+            // Let binary operator '.' handle string concatenation.
+        }
 
         if (cur_tok.kind == TOK_LPAREN) {
             next_token();
@@ -130,12 +166,24 @@ static void parse_primary(void) {
             }
         } else {
             int offset = find_local(name);
-            if (offset < 0) {
-                m_print("Undeclared identifier\n");
-                k_exit(1);
+            if (offset >= 0) {
+                emit_u8(0x48); emit_u8(0x8B); emit_u8(0x85);
+                emit_u32((uint32_t)(-offset));
+                return;
             }
-            emit_u8(0x48); emit_u8(0x8B); emit_u8(0x85);
-            emit_u32((uint32_t)(-offset));
+
+            int64_t g_off = find_global(name);
+            if (g_off >= 0) {
+                emit_u8(0x48); emit_u8(0x8B); emit_u8(0x05);
+                C.glob_relocs[C.glob_reloc_count].patch_site = C.code_len;
+                C.glob_relocs[C.glob_reloc_count].data_offset = (size_t)g_off;
+                C.glob_reloc_count++;
+                emit_u32(0);
+                return;
+            }
+
+            m_print("Undeclared identifier\n");
+            k_exit(1);
         }
     } else {
         m_print("Syntax Error in expression\n");
@@ -145,10 +193,17 @@ static void parse_primary(void) {
 
 static int get_precedence(TokenKind k) {
     switch (k) {
-        case TOK_EQ: case TOK_NE: case TOK_LT:
-        case TOK_LE: case TOK_GT: case TOK_GE: return 1;
-        case TOK_PLUS: case TOK_MINUS: return 2;
-        case TOK_STAR: case TOK_SLASH: case TOK_PERCENT: return 3;
+        case TOK_OR: return 1;
+        case TOK_AND: return 2;
+        case TOK_DOT: return 3;
+        case TOK_BIT_OR: return 4;
+        case TOK_BIT_XOR: return 5;
+        case TOK_BIT_AND: return 6;
+        case TOK_EQ: case TOK_NE: return 7;
+        case TOK_LT: case TOK_LE: case TOK_GT: case TOK_GE: return 8;
+        case TOK_SHL: case TOK_SHR: return 9;
+        case TOK_PLUS: case TOK_MINUS: return 10;
+        case TOK_STAR: case TOK_SLASH: case TOK_PERCENT: return 11;
         default: return 0;
     }
 }
@@ -181,6 +236,44 @@ static void parse_binary_expr(int min_prec) {
                 emit_u8(0x48); emit_u8(0xF7); emit_u8(0xF9);
                 emit_u8(0x48); emit_u8(0x89); emit_u8(0xD0);
                 break;
+            case TOK_BIT_AND: emit_u8(0x48); emit_u8(0x21); emit_u8(0xD8); break;
+            case TOK_BIT_OR:  emit_u8(0x48); emit_u8(0x09); emit_u8(0xD8); break;
+            case TOK_BIT_XOR: emit_u8(0x48); emit_u8(0x31); emit_u8(0xD8); break;
+            case TOK_SHL:
+                emit_u8(0x48); emit_u8(0x89); emit_u8(0xC1);
+                emit_u8(0x48); emit_u8(0xD3); emit_u8(0xE3);
+                emit_u8(0x48); emit_u8(0x89); emit_u8(0xD8);
+                break;
+            case TOK_SHR:
+                emit_u8(0x48); emit_u8(0x89); emit_u8(0xC1);
+                emit_u8(0x48); emit_u8(0xD3); emit_u8(0xFB);
+                emit_u8(0x48); emit_u8(0x89); emit_u8(0xD8);
+                break;
+            case TOK_AND:
+                emit_u8(0x48); emit_u8(0x85); emit_u8(0xDB);
+                emit_u8(0x0F); emit_u8(0x95); emit_u8(0xC3);
+                emit_u8(0x48); emit_u8(0x85); emit_u8(0xC0);
+                emit_u8(0x0F); emit_u8(0x95); emit_u8(0xC0);
+                emit_u8(0x20); emit_u8(0xD8);
+                emit_u8(0x48); emit_u8(0x0F); emit_u8(0xB6); emit_u8(0xC0);
+                break;
+            case TOK_OR:
+                emit_u8(0x48); emit_u8(0x85); emit_u8(0xDB);
+                emit_u8(0x0F); emit_u8(0x95); emit_u8(0xC3);
+                emit_u8(0x48); emit_u8(0x85); emit_u8(0xC0);
+                emit_u8(0x0F); emit_u8(0x95); emit_u8(0xC0);
+                emit_u8(0x08); emit_u8(0xD8);
+                emit_u8(0x48); emit_u8(0x0F); emit_u8(0xB6); emit_u8(0xC0);
+                break;
+            case TOK_DOT:
+                emit_u8(0x48); emit_u8(0x89); emit_u8(0xF7);
+                emit_u8(0x48); emit_u8(0x89); emit_u8(0xDF);
+                emit_u8(0x48); emit_u8(0x89); emit_u8(0xC6);
+                C.needs_concat = 1;
+                emit_u8(0xE8);
+                C.concat_patches[C.concat_patch_count++] = C.code_len;
+                emit_u32(0);
+                break;
             case TOK_EQ: case TOK_NE: case TOK_LT: case TOK_LE: case TOK_GT: case TOK_GE:
                 emit_u8(0x48); emit_u8(0x39); emit_u8(0xC3);
                 emit_u8(0x0F);
@@ -202,13 +295,14 @@ static void parse_expression(void) { parse_binary_expr(1); }
 
 static void parse_statement(void) {
     if (cur_tok.kind == TOK_TYPE_INT || cur_tok.kind == TOK_TYPE_STR || cur_tok.kind == TOK_TYPE_BOOL) {
+        int is_str = (cur_tok.kind == TOK_TYPE_STR);
         next_token();
         char var_name[64];
         m_strncpy(var_name, cur_tok.str_val, 63);
         expect(TOK_IDENT);
         expect(TOK_ASSIGN);
         parse_expression();
-        int offset = add_local(var_name);
+        int offset = add_local(var_name, is_str);
         emit_u8(0x48); emit_u8(0x89); emit_u8(0x85);
         emit_u32((uint32_t)(-offset));
         return;
@@ -296,13 +390,20 @@ static void parse_statement(void) {
             C.str_relocs[C.str_reloc_count].data_offset = str_offset;
             C.str_reloc_count++;
             emit_u32(0);
+
             if (str_len <= 127) {
-                emit_u8(0x6A); emit_u8((uint8_t)str_len); emit_u8(0x5A); // push imm8; pop rdx (3 bytes)
+                emit_u8(0x6A); emit_u8((uint8_t)str_len); emit_u8(0x5A);
             } else {
-                emit_u8(0xBA); emit_u32((uint32_t)str_len);               // mov edx, imm32 (5 bytes, zero-extends!)
+                emit_u8(0xBA); emit_u32((uint32_t)str_len);
             }
             emit_u8(0x0F); emit_u8(0x05);
         } else {
+            // Check if argument is a string variable or expression
+            int is_str_var = 0;
+            if (cur_tok.kind == TOK_IDENT) {
+                is_str_var = find_local_is_str(cur_tok.str_val) || find_global_is_str(cur_tok.str_val);
+            }
+
             parse_expression();
             if (cur_tok.kind == TOK_COMMA) {
                 next_token();
@@ -313,12 +414,18 @@ static void parse_statement(void) {
                 emit_u8(0x6A); emit_u8(0x01); emit_u8(0x58);
                 emit_u8(0x6A); emit_u8(0x01); emit_u8(0x5F);
                 emit_u8(0x0F); emit_u8(0x05);
+            } else if (is_str_var) {
+                // Single string variable argument -> print_str runtime!
+                C.needs_print_str = 1;
+                emit_u8(0xE8);
+                C.str_print_patches[C.str_print_patch_count++] = C.code_len;
+                emit_u32(0);
             } else {
-                // Number printing: trigger lazy emission!
+                // Integer expression -> print_int runtime!
                 C.needs_print_int = 1;
-                emit_u8(0xE8); // call disp32
+                emit_u8(0xE8);
                 C.int_print_patches[C.int_print_patch_count++] = C.code_len;
-                emit_u32(0); // placeholder
+                emit_u32(0);
             }
         }
         expect(TOK_RPAREN);
@@ -333,15 +440,13 @@ static void parse_statement(void) {
         emit_u8(0x48); emit_u8(0x89); emit_u8(0xC7);
         emit_u8(0x6A); emit_u8(0x3C); emit_u8(0x58);
         emit_u8(0x0F); emit_u8(0x05);
-        C.has_exited = 1; // Mark that code already called exit!
+        C.has_exited = 1;
         return;
     }
 
     if (cur_tok.kind == TOK_IF) {
         next_token();
-        expect(TOK_LPAREN);
         parse_expression();
-        expect(TOK_RPAREN);
 
         emit_u8(0x48); emit_u8(0x85); emit_u8(0xC0);
         emit_u8(0x0F); emit_u8(0x84);
@@ -376,8 +481,6 @@ static void parse_statement(void) {
 
     if (cur_tok.kind == TOK_WHILE) {
         next_token();
-        expect(TOK_LPAREN);
-
         if (C.loop_depth >= MAX_LOOP_DEPTH) { m_print("Error: Max loop nesting exceeded\n"); k_exit(1); }
         LoopContext *l = &C.loops[C.loop_depth++];
         l->is_counted = 0;
@@ -386,7 +489,6 @@ static void parse_statement(void) {
         l->start_offset = C.code_len;
 
         parse_expression();
-        expect(TOK_RPAREN);
 
         emit_u8(0x48); emit_u8(0x85); emit_u8(0xC0);
         emit_u8(0x0F); emit_u8(0x84);
@@ -424,8 +526,8 @@ static void parse_statement(void) {
         l->break_count = 0;
         l->continue_count = 0;
 
-        int limit_off = add_local("__limit");
-        int index_off = add_local("__index");
+        int limit_off = add_local("__limit", 0);
+        int index_off = add_local("__index", 0);
         l->index_offset = index_off;
         l->limit_offset = limit_off;
 
@@ -472,14 +574,57 @@ static void parse_statement(void) {
         char name[64];
         m_strncpy(name, cur_tok.str_val, 63);
         next_token();
+
+        if (cur_tok.kind == TOK_DOT) {
+            next_token();
+            char field_name[64];
+            m_strncpy(field_name, cur_tok.str_val, 63);
+            expect(TOK_IDENT);
+            expect(TOK_ASSIGN);
+
+            int f_off = find_field_offset(field_name);
+            if (f_off < 0) {
+                m_print("Unknown struct field: ");
+                m_print(field_name);
+                m_print("\n");
+                k_exit(1);
+            }
+
+            int l_off = find_local(name);
+            if (l_off < 0) { m_print("Undeclared struct pointer\n"); k_exit(1); }
+
+            emit_u8(0x48); emit_u8(0x8B); emit_u8(0x85); emit_u32((uint32_t)(-l_off));
+            emit_u8(0x48); emit_u8(0x05); emit_u32((uint32_t)f_off);
+            emit_u8(0x50);
+            parse_expression();
+            emit_u8(0x5B);
+            emit_u8(0x48); emit_u8(0x89); emit_u8(0x03);
+            return;
+        }
+
         if (cur_tok.kind == TOK_ASSIGN) {
             next_token();
             parse_expression();
+
             int offset = find_local(name);
-            if (offset < 0) { m_print("Undeclared variable\n"); k_exit(1); }
-            emit_u8(0x48); emit_u8(0x89); emit_u8(0x85);
-            emit_u32((uint32_t)(-offset));
-            return;
+            if (offset >= 0) {
+                emit_u8(0x48); emit_u8(0x89); emit_u8(0x85);
+                emit_u32((uint32_t)(-offset));
+                return;
+            }
+
+            int64_t g_off = find_global(name);
+            if (g_off >= 0) {
+                emit_u8(0x48); emit_u8(0x89); emit_u8(0x05);
+                C.glob_relocs[C.glob_reloc_count].patch_site = C.code_len;
+                C.glob_relocs[C.glob_reloc_count].data_offset = (size_t)g_off;
+                C.glob_reloc_count++;
+                emit_u32(0);
+                return;
+            }
+
+            m_print("Undeclared variable\n");
+            k_exit(1);
         }
     }
 

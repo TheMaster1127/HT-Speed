@@ -1,5 +1,3 @@
 main
-Loop, 5 {
-    print(A_Index)
-}
+Loop, 5 { print(A_Index) }
 exit(0)

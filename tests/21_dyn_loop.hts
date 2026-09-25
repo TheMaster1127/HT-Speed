@@ -1,6 +1,4 @@
 main
 int n := 4
-Loop, n {
-    print(A_Index)
-}
+Loop, n { print(A_Index) }
 exit(0)

@@ -10,12 +10,15 @@ typedef unsigned long long uint64_t;
 typedef long long          int64_t;
 typedef unsigned long      size_t;
 
-#define MAX_SRC    131072
-#define MAX_CODE   65536
-#define MAX_DATA   32768
-#define MAX_LOCALS 256
-#define MAX_FUNCS  128
-#define MAX_FIXUPS 512
+#define MAX_SRC     262144
+#define MAX_CODE    131072
+#define MAX_DATA    65536
+#define MAX_LOCALS  256
+#define MAX_GLOBALS 256
+#define MAX_FUNCS   128
+#define MAX_STRUCTS 64
+#define MAX_FIELDS  32
+#define MAX_FIXUPS  512
 
 // --- Raw Linux Syscall Wrappers (Zero Libc) ---
 static inline int64_t k_write(int fd, const void *buf, size_t count) {
@@ -46,7 +49,7 @@ static inline void k_exit(int code) {
     __asm__ volatile ("syscall" :: "a"(60), "D"(code) : "memory");
 }
 
-// --- Minimal String Helpers ---
+// --- Minimal String & Memory Helpers ---
 static inline size_t m_strlen(const char *s) {
     size_t l = 0;
     while (s[l]) l++;
@@ -68,11 +71,6 @@ static inline void m_memset(void *dst, int val, size_t n) {
     for (size_t i = 0; i < n; i++) d[i] = (uint8_t)val;
 }
 
-static inline int m_strcmp(const char *a, const char *b) {
-    while (*a && (*a == *b)) { a++; b++; }
-    return *(const unsigned char *)a - *(const unsigned char *)b;
-}
-
 static inline int m_memcmp(const void *s1, const void *s2, size_t n) {
     const uint8_t *p1 = (const uint8_t *)s1;
     const uint8_t *p2 = (const uint8_t *)s2;
@@ -80,6 +78,11 @@ static inline int m_memcmp(const void *s1, const void *s2, size_t n) {
         if (p1[i] != p2[i]) return (int)p1[i] - (int)p2[i];
     }
     return 0;
+}
+
+static inline int m_strcmp(const char *a, const char *b) {
+    while (*a && (*a == *b)) { a++; b++; }
+    return *(const unsigned char *)a - *(const unsigned char *)b;
 }
 
 static inline int m_strncmp(const char *a, const char *b, size_t n) {

@@ -1,0 +1,5 @@
+int g_num := 777
+
+main
+print(g_num)
+exit(0)

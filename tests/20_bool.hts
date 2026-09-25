@@ -1,14 +1,6 @@
 main
 bool flag := 1
-if (flag) {
-    print("yes\n")
-} else {
-    print("no\n")
-}
+if (flag) { print("yes\n") } else { print("no\n") }
 flag := 0
-if (flag) {
-    print("still yes\n")
-} else {
-    print("now no\n")
-}
+if (flag) { print("still yes\n") } else { print("now no\n") }
 exit(0)

@@ -1,0 +1,57 @@
+// 1. Top-Level Global Variable
+int global_base := 100
+
+// 2. Struct Definition (Supports OSP subout or { ... })
+struct Player
+    int health
+    int mana
+subout
+
+main
+print("=== 1. Flexible IF with 'or' and 'and' ===\n")
+int a := 45
+int b := 99
+
+if (a = 45) or (b = 5) {
+    print("[PASS] (a = 45) or (b = 5) evaluated true!\n")
+}
+
+if (a = 45) and (b = 99) {
+    print("[PASS] (a = 45) and (b = 99) evaluated true!\n")
+}
+
+print("=== 2. Bitwise Operators ===\n")
+int shifted := 1 << 4   // 16
+print("1 << 4 =\n")
+print(shifted)
+
+int masked := 0xFF & 0x0F // 15
+print("0xFF & 0x0F =\n")
+print(masked)
+
+print("=== 3. Global Variables ===\n")
+print("global_base (100):\n")
+print(global_base)
+
+print("=== 4. Struct Property Access ===\n")
+int p := alloc(16)
+p.health := 250
+p.mana := 80
+
+print("Player health (250):\n")
+print(p.health)
+print("Player mana (80):\n")
+print(p.mana)
+
+print("=== 5. String Concatenation (.) ===\n")
+str s1 := "Fast "
+str s2 := "Compiler!\n"
+str combined := s1 . s2
+print(combined)
+
+print("=== 6. Command Line Arguments (GetParams) ===\n")
+str params := GetParams()
+print("Arguments passed:\n")
+print(params)
+
+exit(0)

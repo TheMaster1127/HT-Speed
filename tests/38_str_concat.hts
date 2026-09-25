@@ -1,0 +1,6 @@
+main
+str a := "Hello, "
+str b := "HTSpeed!\n"
+str combined := a . b
+print(combined)
+exit(0)

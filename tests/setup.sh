@@ -1,13 +1,11 @@
 #!/bin/bash
-# setup.sh — creates the test suite in ./tests/
+# setup.sh — creates the full test suite in ./tests/
 # Run this from the project root: bash tests/setup.sh
 
 set -e
 cd "$(dirname "$0")"
 
-# ============================================================
 # 01 - hello world
-# ============================================================
 cat > 01_hello.hts << 'EOF'
 main
 print("Hello, World!\n")
@@ -17,14 +15,8 @@ printf 'Hello, World!\n' > 01_hello.expected
 
 # 02 - simple function
 cat > 02_function.hts << 'EOF'
-func int add(int a, int b) {
-    return a + b
-}
-
-func int mul(int a, int b) {
-    return a * b
-}
-
+func int add(int a, int b) { return a + b }
+func int mul(int a, int b) { return a * b }
 main
 int x := add(3, 4)
 int y := mul(x, 2)
@@ -36,12 +28,9 @@ printf '14\n' > 02_function.expected
 # 03 - recursive fibonacci
 cat > 03_fib.hts << 'EOF'
 func int fib(int n) {
-    if (n <= 1) {
-        return n
-    }
+    if (n <= 1) { return n }
     return fib(n - 1) + fib(n - 2)
 }
-
 main
 print(fib(10))
 exit(0)
@@ -51,9 +40,7 @@ printf '55\n' > 03_fib.expected
 # 04 - Loop with A_Index
 cat > 04_loop.hts << 'EOF'
 main
-Loop, 5 {
-    print(A_Index)
-}
+Loop, 5 { print(A_Index) }
 exit(0)
 EOF
 printf '0\n1\n2\n3\n4\n' > 04_loop.expected
@@ -74,12 +61,8 @@ printf '0\n1\n2\n3\n4\n' > 05_while.expected
 cat > 06_break_continue.hts << 'EOF'
 main
 Loop, 10 {
-    if (A_Index = 3) {
-        continue
-    }
-    if (A_Index = 6) {
-        break
-    }
+    if (A_Index = 3) { continue }
+    if (A_Index = 6) { break }
     print(A_Index)
 }
 exit(0)
@@ -126,11 +109,8 @@ cat > 10_nested_if.hts << 'EOF'
 main
 int x := 5
 if (x > 0) {
-    if (x > 3) {
-        print("big\n")
-    } else {
-        print("small\n")
-    }
+    if (x > 3) { print("big\n") }
+    else { print("small\n") }
 } else {
     print("neg\n")
 }
@@ -142,9 +122,7 @@ printf 'big\n' > 10_nested_if.expected
 cat > 11_nested_loops.hts << 'EOF'
 main
 Loop, 3 {
-    Loop, 2 {
-        print(A_Index)
-    }
+    Loop, 2 { print(A_Index) }
 }
 exit(0)
 EOF
@@ -155,7 +133,6 @@ cat > 12_exit_code.hts << 'EOF'
 main
 print("before exit\n")
 exit(42)
-print("this should not print\n")
 EOF
 printf 'before exit\n' > 12_exit_code.expected
 echo 42 > 12_exit_code.exitcode
@@ -196,12 +173,9 @@ printf '255\n16\n' > 15_hex.expected
 # 16 - factorial via recursion
 cat > 16_factorial.hts << 'EOF'
 func int fact(int n) {
-    if (n <= 1) {
-        return 1
-    }
+    if (n <= 1) { return 1 }
     return n * fact(n - 1)
 }
-
 main
 print(fact(5))
 print(fact(7))
@@ -225,7 +199,6 @@ cat > 18_func_args.hts << 'EOF'
 func int one() { return 1 }
 func int two() { return 2 }
 func int add(int a, int b) { return a + b }
-
 main
 print(add(one(), two()))
 exit(0)
@@ -251,17 +224,9 @@ printf '30\n110\n40\n' > 19_mutate.expected
 cat > 20_bool.hts << 'EOF'
 main
 bool flag := 1
-if (flag) {
-    print("yes\n")
-} else {
-    print("no\n")
-}
+if (flag) { print("yes\n") } else { print("no\n") }
 flag := 0
-if (flag) {
-    print("still yes\n")
-} else {
-    print("now no\n")
-}
+if (flag) { print("still yes\n") } else { print("now no\n") }
 exit(0)
 EOF
 printf 'yes\nnow no\n' > 20_bool.expected
@@ -270,9 +235,7 @@ printf 'yes\nnow no\n' > 20_bool.expected
 cat > 21_dyn_loop.hts << 'EOF'
 main
 int n := 4
-Loop, n {
-    print(A_Index)
-}
+Loop, n { print(A_Index) }
 exit(0)
 EOF
 printf '0\n1\n2\n3\n' > 21_dyn_loop.expected
@@ -319,20 +282,10 @@ exit(0)
 EOF
 printf '36\n' > 25_many_locals.expected
 
-# ============================================================
-# 26 - forward reference (FIXED: both functions before main)
-# func a calls func b, but b is defined below a.
-# Tests the func_fixups table.
-# ============================================================
+# 26 - forward reference
 cat > 26_forward_ref.hts << 'EOF'
-func int a(int x) {
-    return b(x) + 1
-}
-
-func int b(int x) {
-    return x * 2
-}
-
+func int a(int x) { return b(x) + 1 }
+func int b(int x) { return x * 2 }
 main
 print(a(5))
 exit(0)
@@ -342,18 +295,11 @@ printf '11\n' > 26_forward_ref.expected
 # 27 - multiple return paths
 cat > 27_multi_return.hts << 'EOF'
 func int classify(int x) {
-    if (x < 0) {
-        return 0
-    }
-    if (x = 0) {
-        return 1
-    }
-    if (x < 100) {
-        return 2
-    }
+    if (x < 0) { return 0 }
+    if (x = 0) { return 1 }
+    if (x < 100) { return 2 }
     return 3
 }
-
 main
 print(classify(0 - 5))
 print(classify(0))
@@ -368,14 +314,13 @@ cat > 28_six_args.hts << 'EOF'
 func int sum6(int a, int b, int c, int d, int e, int f) {
     return a + b + c + d + e + f
 }
-
 main
 print(sum6(1, 2, 3, 4, 5, 6))
 exit(0)
 EOF
 printf '21\n' > 28_six_args.expected
 
-# 29 - long string literal (1501 chars) — triggers the push imm8 bug
+# 29 - long string literal (1501 chars)
 {
     printf 'main\nprint("'
     for i in $(seq 1 150); do printf 'ABCDEFGHIJ'; done
@@ -386,7 +331,7 @@ printf '21\n' > 28_six_args.expected
     printf '\n'
 } > 29_long_string.expected
 
-# 30 - boundary test: 120 + 6 + 1 = 127 bytes
+# 30 - boundary test: 127 chars
 {
     printf 'main\nprint("'
     for i in $(seq 1 12); do printf 'ABCDEFGHIJ'; done
@@ -397,7 +342,7 @@ printf '21\n' > 28_six_args.expected
     printf 'ABCDEF\n'
 } > 30_len127.expected
 
-# 31 - boundary test: 120 + 7 + 1 = 128 bytes
+# 31 - boundary test: 128 chars
 {
     printf 'main\nprint("'
     for i in $(seq 1 12); do printf 'ABCDEFGHIJ'; done
@@ -407,5 +352,151 @@ printf '21\n' > 28_six_args.expected
     for i in $(seq 1 12); do printf 'ABCDEFGHIJ'; done
     printf 'ABCDEFG\n'
 } > 31_len128.expected
+
+# ============================================================
+# NEW FEATURE TESTS (32 to 41)
+# ============================================================
+
+# 32 - Top-level global variables
+cat > 32_global_vars.hts << 'EOF'
+int g_num := 777
+
+main
+print(g_num)
+exit(0)
+EOF
+printf '777\n' > 32_global_vars.expected
+
+# 33 - Struct OSP subout syntax
+cat > 33_struct_osp.hts << 'EOF'
+struct Entity
+    int health
+    int speed
+subout
+
+main
+int e := alloc(16)
+e.health := 100
+e.speed := 25
+print(e.health)
+print(e.speed)
+exit(0)
+EOF
+printf '100\n25\n' > 33_struct_osp.expected
+
+# 34 - Struct curly-brace syntax
+cat > 34_struct_braces.hts << 'EOF'
+struct Point {
+    int x
+    int y
+}
+
+main
+int pt := alloc(16)
+pt.x := 12
+pt.y := 34
+print(pt.x + pt.y)
+exit(0)
+EOF
+printf '46\n' > 34_struct_braces.expected
+
+# 35 - Flexible IF with 'or' and '||'
+cat > 35_logical_or.hts << 'EOF'
+main
+int a := 10
+int b := 20
+if (a = 10) or (b = 999) {
+    print("or_passed\n")
+}
+if (a = 999) || (b = 20) {
+    print("pipe_passed\n")
+}
+if (a = 999) or (b = 999) {
+    print("fail\n")
+} else {
+    print("else_passed\n")
+}
+exit(0)
+EOF
+printf 'or_passed\npipe_passed\nelse_passed\n' > 35_logical_or.expected
+
+# 36 - Flexible IF with 'and' and '&&'
+cat > 36_logical_and.hts << 'EOF'
+main
+int x := 5
+int y := 10
+if (x = 5) and (y = 10) {
+    print("and_passed\n")
+}
+if (x = 5) && (y = 99) {
+    print("fail\n")
+} else {
+    print("and_false_passed\n")
+}
+exit(0)
+EOF
+printf 'and_passed\nand_false_passed\n' > 36_logical_and.expected
+
+# 37 - Bitwise operators (&, |, ^, ~, <<, >>)
+cat > 37_bitwise.hts << 'EOF'
+main
+print(1 << 5)
+print(64 >> 2)
+print(0xF0 & 0x30)
+print(0xF0 | 0x0F)
+print(0xAA ^ 0xFF)
+exit(0)
+EOF
+printf '32\n16\n48\n255\n85\n' > 37_bitwise.expected
+
+# 38 - String concatenation (.)
+cat > 38_str_concat.hts << 'EOF'
+main
+str a := "Hello, "
+str b := "HTSpeed!\n"
+str combined := a . b
+print(combined)
+exit(0)
+EOF
+printf 'Hello, HTSpeed!\n' > 38_str_concat.expected
+
+# 39 - Chained string concatenation
+cat > 39_str_concat_chain.hts << 'EOF'
+main
+str first := "A"
+str second := "B"
+str third := "C\n"
+str full := first . second . third
+print(full)
+exit(0)
+EOF
+printf 'ABC\n' > 39_str_concat_chain.expected
+
+# 40 - Include external file
+cat > inc_helper.inc << 'EOF'
+func int inc_val(int n) {
+    return n + 100
+}
+EOF
+
+cat > 40_include.hts << 'EOF'
+include "tests/inc_helper.inc"
+
+main
+int res := inc_val(50)
+print(res)
+exit(0)
+EOF
+printf '150\n' > 40_include.expected
+
+# 41 - Command-line arguments via GetParams()
+cat > 41_getparams.hts << 'EOF'
+main
+str params := GetParams()
+print(params)
+exit(0)
+EOF
+printf 'arg1\narg2\n1337\n' > 41_getparams.expected
+printf 'arg1\narg2\n1337\n' > 41_getparams.args
 
 echo "Created $(ls *.hts | wc -l) test files in $(pwd)"

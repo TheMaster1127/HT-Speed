@@ -1,16 +1,9 @@
 func int classify(int x) {
-    if (x < 0) {
-        return 0
-    }
-    if (x = 0) {
-        return 1
-    }
-    if (x < 100) {
-        return 2
-    }
+    if (x < 0) { return 0 }
+    if (x = 0) { return 1 }
+    if (x < 100) { return 2 }
     return 3
 }
-
 main
 print(classify(0 - 5))
 print(classify(0))

@@ -1,0 +1,12 @@
+struct Entity
+    int health
+    int speed
+subout
+
+main
+int e := alloc(16)
+e.health := 100
+e.speed := 25
+print(e.health)
+print(e.speed)
+exit(0)

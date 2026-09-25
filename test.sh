@@ -39,10 +39,11 @@ run_single() {
         echo -e "${R}No test matching number $num${N}"
         exit 1
     fi
-    local name expected exitcode_file binary actual
+    local name expected exitcode_file args_file binary actual
     name=$(basename "$hts" .hts)
     expected="$TESTS_DIR/$name.expected"
     exitcode_file="$TESTS_DIR/$name.exitcode"
+    args_file="$TESTS_DIR/$name.args"
     binary="$TESTS_DIR/$name.bin"
     actual="$TESTS_DIR/$name.actual"
 
@@ -69,7 +70,12 @@ run_single() {
     echo ""
 
     echo -e "${B}── Run ─────────────────────────────────────────────────────${N}"
-    "$binary" > "$actual" 2>&1
+    local args=()
+    if [ -f "$args_file" ]; then
+        mapfile -t args < "$args_file"
+    fi
+
+    "$binary" "${args[@]}" > "$actual" 2>&1
     local run_status=$?
 
     local expected_exit=0
@@ -130,10 +136,13 @@ run_all() {
 
     shopt -s nullglob
     local hts
-    for hts in "$TESTS_DIR"/*.hts; do
-        local name expected binary actual
+    # Numerical sort for clean output
+    for hts in $(ls -v "$TESTS_DIR"/*.hts); do
+        local name expected binary actual exitcode_file args_file
         name=$(basename "$hts" .hts)
         expected="$TESTS_DIR/$name.expected"
+        exitcode_file="$TESTS_DIR/$name.exitcode"
+        args_file="$TESTS_DIR/$name.args"
         binary="$TESTS_DIR/$name.bin"
         actual="$TESTS_DIR/$name.actual"
 
@@ -153,12 +162,17 @@ run_all() {
             continue
         fi
 
-        "$binary" > "$actual" 2>&1
+        local args=()
+        if [ -f "$args_file" ]; then
+            mapfile -t args < "$args_file"
+        fi
+
+        "$binary" "${args[@]}" > "$actual" 2>&1
         local run_status=$?
 
         local expected_exit=0
-        if [ -f "$TESTS_DIR/$name.exitcode" ]; then
-            expected_exit=$(tr -d '[:space:]' < "$TESTS_DIR/$name.exitcode")
+        if [ -f "$exitcode_file" ]; then
+            expected_exit=$(tr -d '[:space:]' < "$exitcode_file")
         fi
 
         if [ "$run_status" -ne "$expected_exit" ]; then

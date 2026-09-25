@@ -1,0 +1,7 @@
+main
+str first := "A"
+str second := "B"
+str third := "C\n"
+str full := first . second . third
+print(full)
+exit(0)

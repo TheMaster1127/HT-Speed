@@ -1,0 +1,7 @@
+main
+print(1 << 5)
+print(64 >> 2)
+print(0xF0 & 0x30)
+print(0xF0 | 0x0F)
+print(0xAA ^ 0xFF)
+exit(0)

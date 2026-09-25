@@ -1,7 +1,5 @@
 main
 Loop, 3 {
-    Loop, 2 {
-        print(A_Index)
-    }
+    Loop, 2 { print(A_Index) }
 }
 exit(0)

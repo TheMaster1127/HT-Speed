@@ -1,0 +1,15 @@
+main
+int a := 10
+int b := 20
+if (a = 10) or (b = 999) {
+    print("or_passed\n")
+}
+if (a = 999) || (b = 20) {
+    print("pipe_passed\n")
+}
+if (a = 999) or (b = 999) {
+    print("fail\n")
+} else {
+    print("else_passed\n")
+}
+exit(0)

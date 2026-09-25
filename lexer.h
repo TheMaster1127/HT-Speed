@@ -9,9 +9,12 @@ typedef enum {
     TOK_LOOP, TOK_WHILE, TOK_BREAK, TOK_CONTINUE,
     TOK_SYSCALL, TOK_ALLOC, TOK_PRINT, TOK_EXIT,
     TOK_TYPE_INT, TOK_TYPE_STR, TOK_TYPE_BOOL, TOK_TYPE_VOID, TOK_BYTE,
+    TOK_STRUCT, TOK_SUBOUT, TOK_INCLUDE, TOK_GETPARAMS,
     TOK_A_INDEX, TOK_ASSIGN, TOK_EQ, TOK_NE, TOK_LT, TOK_LE,
     TOK_GT, TOK_GE, TOK_PLUS, TOK_MINUS, TOK_STAR, TOK_SLASH,
-    TOK_PERCENT, TOK_LPAREN, TOK_RPAREN, TOK_LBRACE, TOK_RBRACE,
+    TOK_PERCENT, TOK_BIT_AND, TOK_BIT_OR, TOK_BIT_XOR, TOK_BIT_NOT,
+    TOK_SHL, TOK_SHR, TOK_AND, TOK_OR, TOK_DOT,
+    TOK_LPAREN, TOK_RPAREN, TOK_LBRACE, TOK_RBRACE,
     TOK_LBRACKET, TOK_RBRACKET, TOK_COMMA
 } TokenKind;
 
@@ -102,16 +105,28 @@ static void next_token(void) {
         else if (m_strcmp(cur_tok.str_val, "bool") == 0) cur_tok.kind = TOK_TYPE_BOOL;
         else if (m_strcmp(cur_tok.str_val, "void") == 0) cur_tok.kind = TOK_TYPE_VOID;
         else if (m_strcmp(cur_tok.str_val, "byte") == 0) cur_tok.kind = TOK_BYTE;
+        else if (m_strcmp(cur_tok.str_val, "struct") == 0) cur_tok.kind = TOK_STRUCT;
+        else if (m_strcmp(cur_tok.str_val, "subout") == 0) cur_tok.kind = TOK_SUBOUT;
+        else if (m_strcmp(cur_tok.str_val, "include") == 0) cur_tok.kind = TOK_INCLUDE;
+        else if (m_strcmp(cur_tok.str_val, "GetParams") == 0) cur_tok.kind = TOK_GETPARAMS;
+        else if (m_strcmp(cur_tok.str_val, "and") == 0) cur_tok.kind = TOK_AND;
+        else if (m_strcmp(cur_tok.str_val, "or") == 0) cur_tok.kind = TOK_OR;
         else if (m_strcmp(cur_tok.str_val, "A_Index") == 0) cur_tok.kind = TOK_A_INDEX;
         else cur_tok.kind = TOK_IDENT;
         return;
     }
 
+    // Multi-character operators
     if (*src == ':' && *(src + 1) == '=') { src += 2; cur_tok.kind = TOK_ASSIGN; return; }
     if (*src == '!' && *(src + 1) == '=') { src += 2; cur_tok.kind = TOK_NE; return; }
     if (*src == '<' && *(src + 1) == '=') { src += 2; cur_tok.kind = TOK_LE; return; }
     if (*src == '>' && *(src + 1) == '=') { src += 2; cur_tok.kind = TOK_GE; return; }
+    if (*src == '<' && *(src + 1) == '<') { src += 2; cur_tok.kind = TOK_SHL; return; }
+    if (*src == '>' && *(src + 1) == '>') { src += 2; cur_tok.kind = TOK_SHR; return; }
+    if (*src == '&' && *(src + 1) == '&') { src += 2; cur_tok.kind = TOK_AND; return; }
+    if (*src == '|' && *(src + 1) == '|') { src += 2; cur_tok.kind = TOK_OR; return; }
 
+    // Single-character operators
     switch (*src) {
         case '=': cur_tok.kind = TOK_EQ; break;
         case '<': cur_tok.kind = TOK_LT; break;
@@ -121,6 +136,11 @@ static void next_token(void) {
         case '*': cur_tok.kind = TOK_STAR; break;
         case '/': cur_tok.kind = TOK_SLASH; break;
         case '%': cur_tok.kind = TOK_PERCENT; break;
+        case '&': cur_tok.kind = TOK_BIT_AND; break;
+        case '|': cur_tok.kind = TOK_BIT_OR; break;
+        case '^': cur_tok.kind = TOK_BIT_XOR; break;
+        case '~': cur_tok.kind = TOK_BIT_NOT; break;
+        case '.': cur_tok.kind = TOK_DOT; break;
         case '(': cur_tok.kind = TOK_LPAREN; break;
         case ')': cur_tok.kind = TOK_RPAREN; break;
         case '{': cur_tok.kind = TOK_LBRACE; break;

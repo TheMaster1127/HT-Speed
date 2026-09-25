@@ -1,0 +1,12 @@
+main
+int x := 5
+int y := 10
+if (x = 5) and (y = 10) {
+    print("and_passed\n")
+}
+if (x = 5) && (y = 99) {
+    print("fail\n")
+} else {
+    print("and_false_passed\n")
+}
+exit(0)

@@ -1,0 +1,6 @@
+include "tests/inc_helper.inc"
+
+main
+int res := inc_val(50)
+print(res)
+exit(0)

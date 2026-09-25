@@ -1,0 +1,11 @@
+struct Point {
+    int x
+    int y
+}
+
+main
+int pt := alloc(16)
+pt.x := 12
+pt.y := 34
+print(pt.x + pt.y)
+exit(0)
