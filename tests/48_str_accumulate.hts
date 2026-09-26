@@ -1,0 +1,7 @@
+main
+str msg := "START:"
+msg := msg . "A"
+msg := msg . "B"
+msg := msg . "END\n"
+print(msg)
+exit(0)

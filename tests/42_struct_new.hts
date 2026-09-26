@@ -1,0 +1,12 @@
+struct Player {
+    int health
+    int mana
+}
+
+main
+int p := new Player
+p.health := 500
+p.mana := 150
+print(p.health)
+print(p.mana)
+exit(0)

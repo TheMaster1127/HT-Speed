@@ -1,55 +1,9 @@
-#ifndef CORE_H
-#define CORE_H
+#ifndef STRING_H
+#define STRING_H
 
-// Minimal Types
-typedef unsigned char      uint8_t;
-typedef unsigned short     uint16_t;
-typedef int                int32_t;
-typedef unsigned int       uint32_t;
-typedef unsigned long long uint64_t;
-typedef long long          int64_t;
-typedef unsigned long      size_t;
+#include "types.h"
+#include "syscalls.h"
 
-#define MAX_SRC     262144
-#define MAX_CODE    131072
-#define MAX_DATA    65536
-#define MAX_LOCALS  256
-#define MAX_GLOBALS 256
-#define MAX_FUNCS   128
-#define MAX_STRUCTS 64
-#define MAX_FIELDS  32
-#define MAX_FIXUPS  512
-
-// --- Raw Linux Syscall Wrappers (Zero Libc) ---
-static inline int64_t k_write(int fd, const void *buf, size_t count) {
-    int64_t ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(1), "D"(fd), "S"(buf), "d"(count) : "rcx", "r11", "memory");
-    return ret;
-}
-
-static inline int64_t k_read(int fd, void *buf, size_t count) {
-    int64_t ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(0), "D"(fd), "S"(buf), "d"(count) : "rcx", "r11", "memory");
-    return ret;
-}
-
-static inline int k_open(const char *path, int flags, int mode) {
-    int ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(2), "D"(path), "S"(flags), "d"(mode) : "rcx", "r11", "memory");
-    return ret;
-}
-
-static inline int k_close(int fd) {
-    int ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(3), "D"(fd) : "rcx", "r11", "memory");
-    return ret;
-}
-
-static inline void k_exit(int code) {
-    __asm__ volatile ("syscall" :: "a"(60), "D"(code) : "memory");
-}
-
-// --- Minimal String & Memory Helpers ---
 static inline size_t m_strlen(const char *s) {
     size_t l = 0;
     while (s[l]) l++;
@@ -126,34 +80,5 @@ static inline int64_t m_strtoll(const char *p, const char **end) {
     if (end) *end = p;
     return val * sign;
 }
-
-// --- Minimal ELF Structs ---
-typedef struct {
-    unsigned char e_ident[16];
-    uint16_t      e_type;
-    uint16_t      e_machine;
-    uint32_t      e_version;
-    uint64_t      e_entry;
-    uint64_t      e_phoff;
-    uint64_t      e_shoff;
-    uint32_t      e_flags;
-    uint16_t      e_ehsize;
-    uint16_t      e_phentsize;
-    uint16_t      e_phnum;
-    uint16_t      e_shentsize;
-    uint16_t      e_shnum;
-    uint16_t      e_shstrndx;
-} Elf64_Ehdr;
-
-typedef struct {
-    uint32_t p_type;
-    uint32_t p_flags;
-    uint64_t p_offset;
-    uint64_t p_vaddr;
-    uint64_t p_paddr;
-    uint64_t p_filesz;
-    uint64_t p_memsz;
-    uint64_t p_align;
-} Elf64_Phdr;
 
 #endif

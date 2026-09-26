@@ -1,0 +1,17 @@
+main
+int total := 0
+Loop, 3 {
+    int w := 0
+    while (w < 5) {
+        w := w + 1
+        if (w = 2) {
+            continue
+        }
+        if (w = 4) {
+            break
+        }
+        total := total + 1
+    }
+}
+print(total)
+exit(0)

@@ -1,7 +1,8 @@
-struct Entity
-    int health
+; AutoHotKey-style semicolon comment!
+struct Entity {
+    int health ; inline field comment
     int speed
-subout
+}
 
 main
 int e := alloc(16)

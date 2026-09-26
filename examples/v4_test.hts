@@ -1,11 +1,11 @@
-// 1. Top-Level Global Variable
+; 1. Top-Level Global Variable
 int global_base := 100
 
-// 2. Struct Definition (Supports OSP subout or { ... })
-struct Player
+; 2. Struct Definition (Supports OSP subout or { ... })
+struct Player {
     int health
     int mana
-subout
+}
 
 main
 print("=== 1. Flexible IF with 'or' and 'and' ===\n")

@@ -367,12 +367,13 @@ exit(0)
 EOF
 printf '777\n' > 32_global_vars.expected
 
-# 33 - Struct OSP subout syntax
+# 33 - Struct with braces and semicolon comments
 cat > 33_struct_osp.hts << 'EOF'
-struct Entity
-    int health
+; AutoHotKey-style semicolon comment!
+struct Entity {
+    int health ; inline field comment
     int speed
-subout
+}
 
 main
 int e := alloc(16)
@@ -498,5 +499,181 @@ exit(0)
 EOF
 printf 'arg1\narg2\n1337\n' > 41_getparams.expected
 printf 'arg1\narg2\n1337\n' > 41_getparams.args
+
+# 42 - Struct allocation using 'new'
+cat > 42_struct_new.hts << 'EOF'
+struct Player {
+    int health
+    int mana
+}
+
+main
+int p := new Player
+p.health := 500
+p.mana := 150
+print(p.health)
+print(p.mana)
+exit(0)
+EOF
+printf '500\n150\n' > 42_struct_new.expected
+
+# 43 - Multiple struct instances
+cat > 43_struct_multiple.hts << 'EOF'
+struct Point {
+    int x
+    int y
+}
+
+main
+int p1 := new Point
+int p2 := new Point
+p1.x := 10
+p1.y := 20
+p2.x := 90
+p2.y := 100
+print(p1.x)
+print(p1.y)
+print(p2.x)
+print(p2.y)
+exit(0)
+EOF
+printf '10\n20\n90\n100\n' > 43_struct_multiple.expected
+
+
+
+# 44 - Nested flow: while inside Loop with break and continue
+cat > 44_nested_flow.hts << 'EOF'
+main
+int total := 0
+Loop, 3 {
+    int w := 0
+    while (w < 5) {
+        w := w + 1
+        if (w = 2) {
+            continue
+        }
+        if (w = 4) {
+            break
+        }
+        total := total + 1
+    }
+}
+print(total)
+exit(0)
+EOF
+printf '6\n' > 44_nested_flow.expected
+
+# 45 - Heap Bubble Sort
+cat > 45_heap_bubblesort.hts << 'EOF'
+main
+int arr := alloc(40)
+[arr + 0] := 50
+[arr + 8] := 20
+[arr + 16] := 40
+[arr + 24] := 10
+[arr + 32] := 30
+
+int n := 5
+int i := 0
+while (i < n) {
+    int j := 0
+    while (j < n - 1) {
+        int a := [arr + j * 8]
+        int b := [arr + (j + 1) * 8]
+        if (a > b) {
+            [arr + j * 8] := b
+            [arr + (j + 1) * 8] := a
+        }
+        j := j + 1
+    }
+    i := i + 1
+}
+
+int k := 0
+while (k < n) {
+    print([arr + k * 8])
+    k := k + 1
+}
+exit(0)
+EOF
+printf '10\n20\n30\n40\n50\n' > 45_heap_bubblesort.expected
+
+# 46 - Complex nested boolean logic
+cat > 46_complex_logic.hts << 'EOF'
+main
+int a := 1
+int b := 0
+int c := 1
+int d := 1
+
+if ((a = 1) and (b = 1)) or ((c = 1) and (d = 1)) {
+    print("pass_or\n")
+} else {
+    print("fail_or\n")
+}
+
+if ((a = 1) or (b = 1)) and ((c = 0) or (d = 0)) {
+    print("fail_and\n")
+} else {
+    print("pass_and\n")
+}
+exit(0)
+EOF
+printf 'pass_or\npass_and\n' > 46_complex_logic.expected
+
+# 47 - Deep nested function call expressions
+cat > 47_deep_calls.hts << 'EOF'
+func int add(int a, int b) { return a + b }
+func int mul(int a, int b) { return a * b }
+
+main
+int res := add(mul(2, 3), add(4, mul(5, 2)))
+print(res)
+exit(0)
+EOF
+printf '20\n' > 47_deep_calls.expected
+
+# 48 - Dynamic string concatenation accumulation
+cat > 48_str_accumulate.hts << 'EOF'
+main
+str msg := "START:"
+msg := msg . "A"
+msg := msg . "B"
+msg := msg . "END\n"
+print(msg)
+exit(0)
+EOF
+printf 'START:ABEND\n' > 48_str_accumulate.expected
+
+# 49 - Mutual recursion with forward fixups
+cat > 49_mutual_recursion.hts << 'EOF'
+func int is_even(int n) {
+    if (n = 0) { return 1 }
+    return is_odd(n - 1)
+}
+
+func int is_odd(int n) {
+    if (n = 0) { return 0 }
+    return is_even(n - 1)
+}
+
+main
+print(is_even(6))
+print(is_even(7))
+print(is_odd(9))
+print(is_odd(10))
+exit(0)
+EOF
+printf '1\n0\n1\n0\n' > 49_mutual_recursion.expected
+
+# 50 - Bitwise operator precedence stress
+cat > 50_bitwise_stress.hts << 'EOF'
+main
+int val := ((0xFF & 0x0F) << 4) | (0xAA ^ 0xAF)
+print(val)
+exit(0)
+EOF
+printf '245\n' > 50_bitwise_stress.expected
+
 
 echo "Created $(ls *.hts | wc -l) test files in $(pwd)"

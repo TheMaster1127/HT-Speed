@@ -1,0 +1,17 @@
+struct Point {
+    int x
+    int y
+}
+
+main
+int p1 := new Point
+int p2 := new Point
+p1.x := 10
+p1.y := 20
+p2.x := 90
+p2.y := 100
+print(p1.x)
+print(p1.y)
+print(p2.x)
+print(p2.y)
+exit(0)

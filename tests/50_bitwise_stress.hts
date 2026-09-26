@@ -1,0 +1,4 @@
+main
+int val := ((0xFF & 0x0F) << 4) | (0xAA ^ 0xAF)
+print(val)
+exit(0)

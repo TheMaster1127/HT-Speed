@@ -1,0 +1,16 @@
+func int is_even(int n) {
+    if (n = 0) { return 1 }
+    return is_odd(n - 1)
+}
+
+func int is_odd(int n) {
+    if (n = 0) { return 0 }
+    return is_even(n - 1)
+}
+
+main
+print(is_even(6))
+print(is_even(7))
+print(is_odd(9))
+print(is_odd(10))
+exit(0)

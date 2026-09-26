@@ -1,7 +1,9 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#include "core.h"
+#include "types.h"
+#include "string.h"
+#include "syscalls.h"
 
 typedef enum {
     TOK_EOF, TOK_INT_LIT, TOK_STR_LIT, TOK_IDENT,
@@ -9,7 +11,7 @@ typedef enum {
     TOK_LOOP, TOK_WHILE, TOK_BREAK, TOK_CONTINUE,
     TOK_SYSCALL, TOK_ALLOC, TOK_PRINT, TOK_EXIT,
     TOK_TYPE_INT, TOK_TYPE_STR, TOK_TYPE_BOOL, TOK_TYPE_VOID, TOK_BYTE,
-    TOK_STRUCT, TOK_SUBOUT, TOK_INCLUDE, TOK_GETPARAMS,
+    TOK_STRUCT, TOK_INCLUDE, TOK_GETPARAMS, TOK_NEW,
     TOK_A_INDEX, TOK_ASSIGN, TOK_EQ, TOK_NE, TOK_LT, TOK_LE,
     TOK_GT, TOK_GE, TOK_PLUS, TOK_MINUS, TOK_STAR, TOK_SLASH,
     TOK_PERCENT, TOK_BIT_AND, TOK_BIT_OR, TOK_BIT_XOR, TOK_BIT_NOT,
@@ -37,6 +39,9 @@ static void skip_whitespace_and_comments(void) {
             src += 2;
             while (*src && *src != '\n') src++;
         } else if (*src == '#') {
+            src++;
+            while (*src && *src != '\n') src++;
+        } else if (*src == ';') {
             src++;
             while (*src && *src != '\n') src++;
         } else if (*src == '/' && *(src + 1) == '*') {
@@ -98,6 +103,7 @@ static void next_token(void) {
         else if (m_strcmp(cur_tok.str_val, "continue") == 0) cur_tok.kind = TOK_CONTINUE;
         else if (m_strcmp(cur_tok.str_val, "syscall") == 0) cur_tok.kind = TOK_SYSCALL;
         else if (m_strcmp(cur_tok.str_val, "alloc") == 0) cur_tok.kind = TOK_ALLOC;
+        else if (m_strcmp(cur_tok.str_val, "new") == 0) cur_tok.kind = TOK_NEW;
         else if (m_strcmp(cur_tok.str_val, "print") == 0) cur_tok.kind = TOK_PRINT;
         else if (m_strcmp(cur_tok.str_val, "exit") == 0) cur_tok.kind = TOK_EXIT;
         else if (m_strcmp(cur_tok.str_val, "int") == 0) cur_tok.kind = TOK_TYPE_INT;
@@ -106,7 +112,6 @@ static void next_token(void) {
         else if (m_strcmp(cur_tok.str_val, "void") == 0) cur_tok.kind = TOK_TYPE_VOID;
         else if (m_strcmp(cur_tok.str_val, "byte") == 0) cur_tok.kind = TOK_BYTE;
         else if (m_strcmp(cur_tok.str_val, "struct") == 0) cur_tok.kind = TOK_STRUCT;
-        else if (m_strcmp(cur_tok.str_val, "subout") == 0) cur_tok.kind = TOK_SUBOUT;
         else if (m_strcmp(cur_tok.str_val, "include") == 0) cur_tok.kind = TOK_INCLUDE;
         else if (m_strcmp(cur_tok.str_val, "GetParams") == 0) cur_tok.kind = TOK_GETPARAMS;
         else if (m_strcmp(cur_tok.str_val, "and") == 0) cur_tok.kind = TOK_AND;
@@ -116,7 +121,6 @@ static void next_token(void) {
         return;
     }
 
-    // Multi-character operators
     if (*src == ':' && *(src + 1) == '=') { src += 2; cur_tok.kind = TOK_ASSIGN; return; }
     if (*src == '!' && *(src + 1) == '=') { src += 2; cur_tok.kind = TOK_NE; return; }
     if (*src == '<' && *(src + 1) == '=') { src += 2; cur_tok.kind = TOK_LE; return; }
@@ -126,7 +130,6 @@ static void next_token(void) {
     if (*src == '&' && *(src + 1) == '&') { src += 2; cur_tok.kind = TOK_AND; return; }
     if (*src == '|' && *(src + 1) == '|') { src += 2; cur_tok.kind = TOK_OR; return; }
 
-    // Single-character operators
     switch (*src) {
         case '=': cur_tok.kind = TOK_EQ; break;
         case '<': cur_tok.kind = TOK_LT; break;

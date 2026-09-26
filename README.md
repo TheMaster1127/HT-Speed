@@ -1,8 +1,8 @@
 # HT-Speed
 
-**The Sub-Millisecond, Zero-Libc x86-64 Native Compiler (v0.4)**
+**The Sub-Millisecond, Zero-Libc x86-64 Native Compiler**
 
-HT-Speed is an ultra-minimalist, single-pass compiler that translates a clean, human-friendly systems language directly into standalone Linux x86-64 ELF executables without intermediate assembly text, without libc, and without external linkers.
+HT-Speed is an ultra-minimalist, single-pass native compiler that translates a clean, human-friendly systems language directly into standalone Linux x86-64 static ELF executables. It operates without intermediate assembly text, without libc, and without external linkers.
 
 Built by [TheMaster1127](https://github.com/TheMaster1127) using [cib (C-Is-Bloated)](https://github.com/TheMaster1127/C-is-bloated).
 
@@ -11,37 +11,31 @@ Built by [TheMaster1127](https://github.com/TheMaster1127) using [cib (C-Is-Bloa
 ## Table of Contents
 - [The Problem](#the-problem)
 - [The Solution](#the-solution)
-- [Benchmarks](#benchmarks)
-- [Architecture & Modular Split](#architecture--modular-split)
+- [Hardware Silicon Benchmarks (vs. TinyCC)](#hardware-silicon-benchmarks-vs-tinycc)
+- [Directory & Project Layout](#directory--project-layout)
+- [Architecture & The Unity Build Engine](#architecture--the-unity-build-engine)
 - [Building HT-Speed](#building-ht-speed)
-  - [Build with CIB (21 KB Static Binary)](#build-with-cib)
+- [Running the Test Suite](#running-the-test-suite)
 - [Language Reference](#language-reference)
-  - [Program Structure (`func` and `main`)](#program-structure)
-  - [File Inclusion (`include`)](#file-inclusion-include)
-  - [Types & Memory Model](#types--memory-model)
-  - [Variables: Local (`:=`) and Global](#variables-local-and-global)
-  - [Structs & OSP Syntax (`struct` and `subout`)](#structs--osp-syntax)
-  - [Operators & Precedence](#operators--precedence)
-    - [Arithmetic & Bitwise](#arithmetic--bitwise)
-    - [The Equality Rule (`=` vs `:=`)](#the-equality-rule--vs-)
-    - [Logical Operators & Flexible Conditions (`and`, `or`)](#logical-operators--flexible-conditions)
-    - [String Concatenation (`.`)](#string-concatenation-)
-  - [Control Flow (`if` / `else`)](#control-flow-if--else)
-  - [Loops (`Loop, count`, `while`, `A_Index`, `break`, `continue`)](#loops)
-  - [Dynamic Heap Memory & Dereferencing (`alloc`, `[ptr]`, `byte[ptr]`)](#dynamic-heap-memory--dereferencing)
-  - [Memory Deallocation (`sys_munmap`)](#memory-deallocation)
-  - [Printing (`print` with Strings, Numbers, and Buffers)](#printing)
-  - [Command-Line Arguments (`GetParams`)](#command-line-arguments-getparams)
-  - [First-Class Kernel Syscalls (`syscall`)](#first-class-kernel-syscalls)
-- [Complete Examples](#complete-examples)
-  - [1. Minimal Hello World (198 bytes)](#1-minimal-hello-world-198-bytes)
-  - [2. Recursive Fibonacci & Dynamic itoa (686 bytes)](#2-recursive-fibonacci--dynamic-itoa-686-bytes)
-  - [3. Structs, Bitwise & Command-Line Arguments](#3-structs-bitwise--command-line-arguments)
-  - [4. Dynamic Heap Arrays & Byte-by-Byte Strings](#4-dynamic-heap-arrays--byte-by-byte-strings)
-  - [5. Interactive Terminal Echo](#5-interactive-terminal-echo)
-  - [6. Heap Allocation & Explicit Freeing (`sys_munmap`)](#6-heap-allocation--explicit-freeing-sys_munmap)
+  - [1. Program Structure & Entry Point (`main`)](#1-program-structure--entry-point-main)
+  - [2. Comments (`;`, `//`, `#`, `/* */`)](#2-comments)
+  - [3. Types & Memory Model](#3-types--memory-model)
+  - [4. Variables & Assignment (`:=` vs `=`)](#4-variables--assignment--vs-)
+  - [5. Structs & Automatic Allocation (`new`)](#5-structs--automatic-allocation-new)
+  - [6. Operators & Precedence](#6-operators--precedence)
+  - [7. Control Flow (`if` / `else`)](#7-control-flow-if--else)
+  - [8. Counted Loops (`Loop, count` & `A_Index`)](#8-counted-loops-loop-count--a_index)
+  - [9. Conditional Loops (`while`)](#9-conditional-loops-while)
+  - [10. Dynamic Memory & Dereferencing (`alloc`, `[ptr]`, `byte[ptr]`)](#10-dynamic-memory--dereferencing)
+  - [11. Printing (`print`)](#11-printing-print)
+  - [12. Command-Line Arguments (`GetParams`)](#12-command-line-arguments-getparams)
+  - [13. Kernel Syscalls (`syscall`)](#13-kernel-syscalls-syscall)
+  - [14. File Inclusion (`include`)](#14-file-inclusion-include)
+- [Complete Runnable Examples](#complete-runnable-examples)
+  - [Minimal Hello World (198 Bytes)](#minimal-hello-world-198-bytes)
+  - [Structs, Functions & String Concat](#structs-functions--string-concat)
+  - [Dynamic Heap Bubble Sort](#dynamic-heap-bubble-sort)
 - [The 120-Byte ELF Layout](#the-120-byte-elf-layout)
-- [Current Limits](#current-limits)
 - [Author & Ecosystem](#author--ecosystem)
 - [License](#license)
 
@@ -49,89 +43,120 @@ Built by [TheMaster1127](https://github.com/TheMaster1127) using [cib (C-Is-Bloa
 
 ## The Problem
 
-Modern compilers are trapped in abstraction bloat:
-* **Compilation Latency:** Compiling a simple program in GCC or Clang takes 30–50 ms and burns 80–120 million CPU instructions.
-* **Binary Bloat:** Standard toolchains link hundreds of kilobytes of C runtime boilerplate (`crt1.o`, dynamic linkers, libc tables).
-* **Intermediate Representation Tax:** Compilers serialize ASTs into intermediate assembly text (`.s`), write it to disk, and then spawn an assembler subprocess to parse it back into binary opcodes.
+Modern language toolchains suffer from massive abstraction layers:
+* **Compilation Latency:** Compiling trivial programs with GCC or Clang takes 30–50 ms and burns 80–120 million CPU instructions.
+* **C Runtime Baggage:** Even static C binaries carry dozens of kilobytes of startup routines (`crt1.o`), symbol tables, and unused dynamic resolution code.
+* **Serialization Tax:** Traditional compilers generate an AST, serialize it to an intermediate representation (IR), emit textual assembly (`.s`), write it to disk, and invoke external assemblers and linkers to assemble it back into binary machine code.
 
 ---
 
 ## The Solution
 
-HT-Speed eliminates the entire pipeline:
-* **Zero Assembly Text:** Translates source tokens directly into raw x86-64 machine code bytes in memory.
-* **Zero Libc Runtime:** Output binaries communicate directly with the Linux kernel via raw syscalls (`sys_write`, `sys_read`, `sys_mmap`, `sys_open`, `sys_exit`).
-* **Microscopic Footprint:** The compiler itself is a **21 KB** static binary, compiles user programs in **~500 microseconds**, and outputs standalone executables starting at **198 bytes**.
+HT-Speed flattens the entire compilation pipeline into pure memory operations:
+* **Zero Assembly Text:** Source tokens are translated directly into physical x86-64 machine code bytes in a single streaming pass.
+* **Zero Libc Runtime:** Output binaries communicate directly with the Linux kernel via raw hardware syscalls (`sys_write`, `sys_read`, `sys_mmap`, `sys_munmap`, `sys_exit`).
+* **Sub-Millisecond Speed:** The compiler runs in **~330 microseconds**, burns **34,000 CPU cycles**, incurs only **19 kernel page faults**, and outputs standalone executables starting at **198 bytes**.
 
 ---
 
-## Benchmarks
+## Hardware Silicon Benchmarks (vs. TinyCC)
 
-Measured on **Artix Linux x86-64**, physical silicon, averaged across **100 runs back-to-back** using Linux `perf stat -r 100`:
+Measured on **Artix Linux x86-64 physical hardware** (averaged across **100 consecutive runs back-to-back** using `perf stat -r 100` compiling identical workloads):
 
-### Workload: Multi-Function Program (`test.hts` vs `test.c`)
+### Workload: `test.hts` vs `test.c` (Nested calls, loops, variables, math, branching, and I/O)
 
-```text
-Functions, nested calls, loops, variables, comparisons, arithmetic, and syscalls
-```
-
-| Metric | TinyCC (`tcc`) | HT-Speed (`htspeed_cib`) | Advantage |
+| Metric | TinyCC (`tcc`) | HT-Speed (`htspeed_cib`) | Hardware Advantage |
 | :--- | :--- | :--- | :--- |
-| **Elapsed Wall-Clock Time** | **2.90 ms** | **0.55 ms (554 µs)** | **5.2× faster** |
-| **Active Task-Clock (CPU time)**| **2.70 ms** | **0.40 ms (400 µs)** | **6.75× faster** |
-| **CPU Cycles Burned** | **5,303,993** | **116,973** | **45.3× FEWER CYCLES** |
-| **Instructions Executed** | **13,494,201** | **~80,000** | **Over 160× FEWER INSTRUCTIONS** |
-| **Branches Taken** | **1,523,718** | **19,831** | **76.8× FEWER BRANCHES** |
-| **Kernel Page Faults** | **327** | **121** | **2.7× fewer faults** |
-| **Output Binary Size** | **4.8 KB (4,800 B)** | **929 bytes** | **5.2× smaller (pure static)** |
+| **CPU Cycles Burned** | **5,355,076** | **33,805** | **158.4× FEWER CYCLES** |
+| **Kernel Page Faults** | **327** | **19** | **17.2× FEWER PAGE FAULTS** |
+| **Active Task-Clock (CPU time)** | **2.76 ms** | **0.28 ms (280 µs)** | **9.8× FASTER CPU TIME** |
+| **Elapsed Wall-Clock Time** | **2.95 ms** | **0.39 ms (390 µs)** | **7.5× FASTER WALL CLOCK** |
+| **Branches Evaluated** | **1,531,439** | **9,798** | **156× FEWER BRANCHES** |
+| **Output Executable Size** | **4,800 bytes** | **929 bytes** | **5.1× SMALLER (Pure Static)** |
 
-*(Against standard GCC, HT-Speed compiles in ~1.5% of GCC's build time and executes over 1,000× fewer instructions).*
-
-> **Note on Scope:** TCC is measured compiling the equivalent C program (`test.c`); the comparison is apples-to-apples in program behavior (functions, loops, arithmetic, branches, and syscalls), not total language surface area.
+> **Demand-Paging Efficiency:** HT-Speed uses high-efficiency BSS tracking, completely avoiding bulk memory wipes. The compiler only touches the physical pages it writes, allowing it to complete entire compilations inside **19 page faults**.
 
 ---
 
-## Architecture & Modular Split
+## Directory & Project Layout
 
-HT-Speed operates as a single-pass streaming compiler split into 5 clean modules:
+The repository is organized into a clean, modular structure:
 
 ```text
-       [ Source Code (.hts) ]
-                 │
-                 ▼
-         ┌───────────────┐
-         │    lexer.h    │  Token scanner, whitespace & comment skimmer
-         └───────────────┘
-                 │
-                 ▼
-         ┌───────────────┐
-         │   parser.h    │  Pratt expression parser, statements, while/Loop
-         └───────────────┘
-                 │
-                 ▼
-         ┌───────────────┐
-         │   emitter.h   │  Raw x86-64 opcodes, inline itoa, fixup table
-         └───────────────┘
-                 │
-                 ▼
-         ┌───────────────┐
-         │    core.h     │  Zero-libc syscalls, string helpers, ELF structs
-         └───────────────┘
-                 │
-                 ▼
-    [ 120-Byte ELF Header + Opcode Buffer ] ──► Stamped directly to disk
+HT-Speed/
+├── src/                  # Core compiler engine modules
+│   ├── types.h           # Primitive integer types, sizing limits, and bounds
+│   ├── syscalls.h        # Direct Linux kernel syscall wrappers (zero libc)
+│   ├── string.h          # Minimal memory and string manipulation helpers
+│   ├── elf.h             # Minimal 64-bit ELF header definitions
+│   ├── tables.h          # Symbol tables (locals, globals, structs, fixups)
+│   ├── emitter.h         # Machine code byte emission primitives
+│   ├── runtimes.h        # 111-byte itoa, string concat, and ELF file writer
+│   ├── expr.h            # Pratt expression parser and operator precedence
+│   ├── stmt.h            # Statement parsing, control flow, loops, and calls
+│   ├── parser.h          # Unified parser interface
+│   └── compiler.h        # Recursive file inclusion and driver loop
+├── examples/             # Complete runnable language examples
+│   ├── hello.hts         # 198-byte Hello World
+│   ├── numbers.hts       # Fibonacci and signed itoa demonstration
+│   ├── nested.hts        # Nested counted loops with A_Index
+│   ├── math_stress.hts   # Arithmetic, modulo, and precedence stress
+│   ├── mega_test.hts     # Heap memory, while loops, and clean I/O
+│   ├── echo.hts          # Zero-libc raw terminal echo
+│   └── v4_test.hts       # Structs, bitwise, string concat, and GetParams
+├── test_speed/           # Benchmark comparison workloads
+│   ├── test.hts          # HT-Speed benchmark workload
+│   └── test.c            # Equivalent C benchmark workload for TCC
+├── tests/                # Automated test suite (50 test cases)
+│   ├── setup.sh          # Test suite generator script
+│   └── test.sh           # Test harness runner
+├── htspeed_cib.c         # Root compiler driver (extracts [rsp + 8])
+├── test.sh               # Root test runner script
+└── README.md
 ```
+
+---
+
+## Architecture & The Unity Build Engine
+
+HT-Speed uses a **Unity Build** architecture. Rather than compiling independent `.c` files into `.o` objects and paying linker overhead, `htspeed_cib.c` includes the headers in `src/` directly into a single translation unit.
+
+```text
+[ Source Code (.hts) ]
+         │
+         ▼
+ ┌───────────────┐
+ │  src/lexer.h  │  Single-pass streaming tokenizer
+ └───────┬───────┘
+         ▼
+ ┌───────────────┐
+ │  src/parser.h │  Pratt parser (src/expr.h + src/stmt.h)
+ └───────┬───────┘
+         ▼
+ ┌───────────────┐
+ │ src/emitter.h │  Direct x86-64 machine code byte emission
+ └───────┬───────┘
+         ▼
+ ┌───────────────┐
+ │ src/runtimes.h│  Backpatches relocations & appends inlined runtimes
+ └───────┬───────┘
+         ▼
+[ 120-Byte Header + Native Machine Code ] ──► Written directly to disk
+```
+
+### Compiler Architecture Guarantees:
+1. **Contiguous Cache Packing:** Hot functions (`emit_u8`, `next_token`) are inlined by GCC `-O2`, packing execution instructions into the same L1 cache lines.
+2. **Dead-Code Elimination:** If a program does not print dynamic signed numbers, the 111-byte `itoa` routine is completely omitted from the binary. If `exit()` is called explicitly, the fallback exit sequence is suppressed.
+3. **Zero Intermediate Disk I/O:** The compiler does not create intermediate `.s` or `.o` files. Machine code is emitted directly into RAM buffers and flushed to disk in a single write operation.
 
 ---
 
 ## Building HT-Speed
 
-### Build with CIB
-
-Compiling HT-Speed with [cib](https://github.com/TheMaster1127/C-is-bloated) strips all glibc baggage from the compiler itself, yielding a **21 KB static compiler binary**:
+Compiling HT-Speed requires [cib](https://github.com/TheMaster1127/C-is-bloated), which strips all standard library bloat and produces a **22 KB static compiler binary**:
 
 ```bash
-# Compile with CIB balanced optimization tier (-Z4)
+# Compile HT-Speed with balanced bare-metal optimization (-Z4)
 cib htspeed_cib.c -Z4
 
 # Verify the compiler is completely standalone
@@ -139,366 +164,345 @@ file htspeed_cib
 # Output: ELF 64-bit LSB executable, x86-64, statically linked, no section header
 
 ls -lh htspeed_cib
-# Output: ~21K htspeed_cib
+# Output: 22K htspeed_cib
 ```
 
-> **Note on -Z flag:** Do NOT use the `-Z5` flag. It causes a segmentation fault triggered by GCC's `-O3` optimization tier in the background. Anything else is valid. Always use either `-Z4` for maximum compilation speed of your compiler, or `-Z0` (the default) for the smallest compiler binary size. Before blaming me for any issues: this is not my fault, it is 100% GCC's fault. Even the Linux kernel refuses to compile with `-O3` because it breaks when you push C to the bare metal.
+> **Note on -Z flag:** Do NOT use the `-Z5` flag. It causes a segmentation fault triggered by GCC's `-O3` optimization tier in the background. Anything else is valid. Always use either `-Z4` for maximum compilation speed of your compiler, or `-Z0` (the default) for the smallest compiler binary size. Before blaming me for any issues: this is not my fault, it is 100% GCC's fault. Even the Linux kernel refuses to compile with `-O3` because it breaks when you push C to the bare metal. So do NOT use `-Z5` (`-O3`), as GCC's aggressive loop vectorization assumes 16-byte aligned glibc stack frames that break bare-metal runtimes.
+
+---
+
+## Running the Test Suite
+
+The test suite contains **50 automated test cases** covering arithmetic, recursion, loops, nested breaks, mutual recursion, bitwise logic, heap bubble sorting, and command-line parsing.
+
+```bash
+# Run all 50 tests
+./test.sh
+
+# Debug a specific test (e.g. test 45) with verbose source, diff, and hexdumps
+./test.sh 45
+```
 
 ---
 
 ## Language Reference
 
-### Program Structure
+### 1. Program Structure & Entry Point (`main`)
 
-Programs consist of optional `include` directives, struct definitions, top-level global variables, function definitions, and a mandatory **`main`** entry point.
+An HT-Speed program consists of top-level definitions (structs, globals, functions) followed by a mandatory **`main`** entry point. Execution begins directly at the first instruction beneath `main`.
 
 ```htvm
-include "math_utils.hts"
-
-int global_counter := 0
-
-struct Player
-    int health
-    int mana
-subout
-
-func int multiply(int a, int b) {
-    return a * b
+; Top-level function
+func int double_val(int n) {
+    return n * 2
 }
 
+; Entry point (Maps to 0x400078 in the physical ELF header)
 main
-int result := multiply(6, 7)
+int x := double_val(21)
+print(x)
 exit(0)
 ```
 
-* **No semicolons:** Statements are delimited by newlines or statement boundaries.
-* **The `main` label:** Maps directly to physical entry offset `0x400078` in the ELF header. Execution begins immediately at the first statement beneath `main`.
-* **Definitions before `main`:** All structs, globals, and functions must be defined before `main`.
-* **Dead-Code Elimination:** If the program does not print dynamic numbers, the internal 111-byte `itoa` routine is completely omitted from the binary. If `exit()` was explicitly called, the automatic fallback exit is suppressed.
-* **Comments:** Supports `// single-line`, `# single-line`, and `/* multi-line */`.
+* **No Semicolons on Statements:** Statements are delimited by newlines.
+* **Top-Level Ordering:** All `struct`, global variables, and `func` declarations must be declared above `main`.
 
 ---
 
-### File Inclusion (`include`)
+### 2. Comments
 
-Split your codebase across multiple files using the `include` directive:
+HT-Speed supports single-line and multi-line comments:
 
 ```htvm
-include "constants.hts"
-include "modules/player.hts"
-```
+; AutoHotKey-style single-line comment
+// C-style single-line comment
+# Shell-style single-line comment
 
-* Files are recursively loaded and spliced directly into memory at compile time before parsing begins.
+/*
+   Multi-line block comment
+*/
+```
 
 ---
 
-### Types & Memory Model
+### 3. Types & Memory Model
 
-All data primitives map directly to 64-bit hardware registers or stack slots:
+All data primitives operate as 64-bit machine words:
 
-| Type | Size | Internal Representation | Description |
-| :--- | :---: | :---: | :--- |
-| **`int`** | 8 bytes | 64-bit signed integer | Decimal (`42`, `-10`) and Hexadecimal (`0x2A`) |
-| **`str`** | 8 bytes | 64-bit pointer | Pointer to an ASCII string in the data pool or heap |
-| **`bool`**| 8 bytes | 64-bit integer (`1` or `0`) | Boolean values |
-| **`void`**| 0 bytes | None | Used for functions returning no value |
-| **`byte`**| 1 byte  | 8-bit unsigned value | Used for raw byte memory access: `byte[ptr]` |
+| Type | Word Size | Register/Stack Layout | Description |
+| :--- | :---: | :--- | :--- |
+| **`int`** | 8 bytes | 64-bit signed integer | Decimal (`42`, `-10`) or Hexadecimal (`0xFF`) |
+| **`str`** | 8 bytes | 64-bit memory pointer | Pointer to null-terminated ASCII bytes in pool or heap |
+| **`bool`**| 8 bytes | 64-bit integer (`1` or `0`) | Boolean truth values |
+| **`byte`**| 1 byte  | 8-bit unsigned integer | Used for byte dereferencing (`byte[ptr]`) |
+| **`void`**| 0 bytes | None | Used for functions that return no value |
 
 ---
 
-### Variables: Local and Global
+### 4. Variables & Assignment (`:=` vs `=`)
 
-#### Local Variables (`:=`)
-Declared inside functions or `main` using the **`:=`** assignment operator:
-```htvm
-int count := 5
-str greeting := "Hello!\n"
-bool active := 1
-```
-* **Re-assignment:** Updating an existing variable uses `:=` without the type keyword:
+To eliminate syntax ambiguity, HT-Speed enforces a strict separation between assignment and equality:
+
+* **`:=` is ALWAYS assignment:**
   ```htvm
+  int count := 10
   count := count + 1
   ```
-* **Storage:** Variables live on the stack relative to `rbp` (`[rbp - 8]`, `[rbp - 16]`). Up to 256 locals per function scope.
+* **`=` is ALWAYS equality comparison:**
+  ```htvm
+  if (count = 11) {
+      print("Equal!\n")
+  }
+  ```
 
-#### Top-Level Global Variables
-Declared at the file level outside functions:
+#### Global Variables
+Declared at the top level before `main` with constant initializers:
 ```htvm
-int global_base := 100
-str global_title := "HT-Speed Engine\n"
+int g_counter := 500
+str g_banner := "Engine Initialized\n"
+
+main
+print(g_banner)
+print(g_counter)
+exit(0)
 ```
-* Stored in the writable ELF data pool. Accessed natively using position-independent `[rip + disp32]` addressing.
 
 ---
 
-### Structs & OSP Syntax
+### 5. Structs & Automatic Allocation (`new`)
 
-Define custom structured data layouts using either OSP syntax (`subout`) or standard curly braces (`{}`):
+Structs define custom 64-bit word memory layouts. Each declared field receives an automatic 8-byte offset:
 
-#### 1. OSP Style (Ordinal Struct Programming)
-```htvm
-struct Player
-    int health
-    int mana
-subout
-```
-
-#### 2. Brace Style
 ```htvm
 struct Point {
     int x
     int y
 }
-```
 
-#### Property Access
-Each field occupies an 8-byte word offset. Access and mutate properties via dot syntax:
-```htvm
-int p := alloc(16)
-p.health := 250
-p.mana := 80
+main
+; 'new' automatically queries the struct size and allocates via sys_mmap
+int pt := new Point
 
-print(p.health) // Prints 250
+pt.x := 100
+pt.y := 200
+
+print(pt.x + pt.y)
+exit(0)
 ```
 
 ---
 
-### Operators & Precedence
+### 6. Operators & Precedence
 
-#### Arithmetic & Bitwise
-HT-Speed supports a complete set of 64-bit arithmetic and bitwise operators:
+HT-Speed implements a Pratt parser with 11 levels of precedence:
 
-| Precedence | Operators | Operation | Machine Instruction |
-| :---: | :---: | :--- | :--- |
-| **11 (Highest)** | `*`, `/`, `%` | Multiply, Divide, Modulo | `imul`, `idiv`, `idiv` |
-| **10** | `+`, `-` | Add, Subtract | `add`, `sub` |
-| **9** | `<<`, `>>` | Shift Left, Arithmetic Shift Right | `shl`, `sar` |
+| Level | Operators | Description | Machine Instruction |
+| :---: | :--- | :--- | :--- |
+| **11** | `*`, `/`, `%` | Multiplication, Division, Modulo | `imul`, `idiv` |
+| **10** | `+`, `-` | Addition, Subtraction | `add`, `sub` |
+| **9** | `<<`, `>>` | Bitwise Shifts | `shl`, `sar` |
 | **8** | `<`, `<=`, `>`, `>=` | Relational Comparisons | `cmp` + `setcc` |
-| **7** | `=`, `!=` | Equality / Inequality | `cmp` + `sete` / `setne` |
+| **7** | `=`, `!=` | Equality, Inequality | `cmp` + `sete` / `setne` |
 | **6** | `&` | Bitwise AND | `and` |
 | **5** | `^` | Bitwise XOR | `xor` |
 | **4** | `\|` | Bitwise OR | `or` |
-| **3** | `.` | Dynamic String Concatenation | Runtime `__str_concat` |
+| **3** | `.` | Dynamic String Concatenation | Inlined `mmap` runtime |
 | **2** | `and`, `&&` | Logical AND | Boolean normalization |
-| **1 (Lowest)** | `or`, `\|\|` | Logical OR | Boolean normalization |
+| **1** | `or`, `\|\|` | Logical OR | Boolean normalization |
 
-Unary bitwise NOT (`~`) inverts all bits: `int inverted := ~0`. Parentheses `()` override precedence arbitrarily.
+Unary bitwise NOT (`~`) inverts all bits: `int mask := ~0`. Parentheses `(...)` override precedence arbitrarily.
 
-#### The Equality Rule (`=` vs `:=`)
-* **`:=` is ALWAYS assignment:** `x := 10`
-* **`=` is ALWAYS equality comparison:** `if (x = 10)`
-
-#### Logical Operators & Flexible Conditions
-You can write natural conditions without forcing a single outer parenthetical wrapper:
+#### Dynamic String Concatenation (`.`)
+The `.` operator joins strings dynamically at runtime:
 ```htvm
-if (a = 45) or (b = 5) {
-    print("Matched or!\n")
-}
-
-if (x = 10) and (y = 20) {
-    print("Matched and!\n")
-}
+main
+str first := "Fast "
+str second := "Compiler!\n"
+str full := first . second
+print(full)
+exit(0)
 ```
-Both word keywords (`and`, `or`) and symbols (`&&`, `||`) are supported interchangeably.
-
-#### String Concatenation (`.`)
-Join strings dynamically with the `.` operator:
-```htvm
-str s1 := "Fast "
-str s2 := "Compiler!\n"
-str combined := s1 . s2
-print(combined)
-```
-* Concatenation dynamically allocates a new heap buffer via `sys_mmap`, copies both strings, null-terminates, and returns the pointer. Supports arbitrary chaining: `a . b . c`.
 
 ---
 
-### Control Flow (`if` / `else`)
+### 7. Control Flow (`if` / `else`)
 
-Evaluates any condition expression. `0` is false; non-zero is true.
+Condition expressions do not require wrapping parentheses around the entire statement:
 
 ```htvm
-if (answer = 42) {
-    print("Correct!\n")
+main
+int a := 10
+int b := 20
+
+if (a = 10) or (b = 999) {
+    print("Or condition matched!\n")
+}
+
+if (a = 10) and (b = 20) {
+    print("And condition matched!\n")
 } else {
-    print("Wrong value!\n")
+    print("Condition failed!\n")
 }
+exit(0)
 ```
-
-Branches support full nesting and single-pass relative displacement backpatching.
 
 ---
 
-### Loops
+### 8. Counted Loops (`Loop, count` & `A_Index`)
 
-HT-Speed provides two loop constructs, both supporting **`break`** and **`continue`**:
+Counted loops provide hardware-efficient iteration with the built-in variable `A_Index` (0-indexed):
 
-#### 1. AutoHotKey-Style Counted Loop (`Loop, count`)
 ```htvm
-Loop, 10 {
-    if (A_Index = 3) {
-        continue // Skip to next iteration
+main
+Loop, 5 {
+    if (A_Index = 2) {
+        continue ; Skip iteration 2
     }
-    if (A_Index = 7) {
-        break    // Exit loop
+    if (A_Index = 4) {
+        break    ; Exit loop
     }
     print(A_Index)
 }
+exit(0)
 ```
-* **Dynamic Limits:** Count can be an immediate integer (`Loop, 10`) or an expression (`Loop, count * 2`).
-* **`A_Index`:** Built-in keyword representing the current 0-based iteration index.
-* **Nesting:** Supported up to 16 levels deep. `A_Index` always references the innermost active loop counter.
 
-#### 2. Conditional While Loop (`while`)
+* **Dynamic Limits:** Count can be an immediate integer (`Loop, 10`) or any valid expression (`Loop, count * 2`).
+* **Nesting:** Supported up to 16 levels deep. `A_Index` resolves to the innermost loop's index.
+
+---
+
+### 9. Conditional Loops (`while`)
+
 ```htvm
+main
 int i := 0
-while (i < 10) {
-    i := i + 1
+while (i < 5) {
     print(i)
+    i := i + 1
 }
+exit(0)
 ```
 
 ---
 
-### Dynamic Heap Memory & Dereferencing
+### 10. Dynamic Memory & Dereferencing
 
-Manipulate raw memory directly without libc `malloc`:
+HT-Speed allows direct heap allocation and memory access without standard library wrappers:
 
 #### 1. Heap Allocation (`alloc`)
 Requests page-aligned memory directly from the Linux kernel using `sys_mmap`:
 ```htvm
-int ptr := alloc(1024) // Allocates 1024 bytes on the heap
+main
+int buf := alloc(64) ; Allocate 64 bytes
+[buf] := 1337        ; 64-bit store
+print([buf])         ; 64-bit load (prints 1337)
+exit(0)
 ```
 
-#### 2. 64-Bit Memory Dereference (`[ptr]`)
-* **Store 8 bytes:** `[ptr + offset] := 1337`
-* **Load 8 bytes:** `int val := [ptr + offset]`
-
-#### 3. 8-Bit Byte Dereference (`byte[ptr]`)
-* **Store 1 byte:** `byte[ptr + offset] := 65`  // 'A'
-* **Load 1 byte:** `int c := byte[ptr + offset]`
-* **Silent Truncation Rule:** `byte[ptr] := value` stores only the lowest 8 bits of the value (`value & 0xFF`). Values exceeding 255 are truncated silently without warning, matching standard x86 `mov byte ptr` behavior.
-
-#### 4. Dynamic Arrays
-Arrays are contiguous memory blocks. Index $i$ of a 64-bit integer array sits at offset `i * 8`:
+#### 2. Byte Dereferencing (`byte[ptr]`)
+Reads and writes single 8-bit bytes:
 ```htvm
-int arr := alloc(800) // Array of 100 integers
+main
+int buf := alloc(16)
+byte[buf + 0] := 72  ; 'H'
+byte[buf + 1] := 105 ; 'i'
+byte[buf + 2] := 10  ; '\n'
 
-// arr[i] := 42
-[arr + i * 8] := 42
-
-// val := arr[i]
-int val := [arr + i * 8]
+print(buf, 3)        ; Prints raw buffer of 3 bytes
+exit(0)
 ```
 
 ---
 
-### Memory Deallocation
+### 11. Printing (`print`)
 
-Memory allocated with `alloc()` can be returned to the Linux kernel using **`sys_munmap` (Syscall 11)**:
-
-```htvm
-func void free(int ptr, int size) {
-    syscall(11, ptr, size)
-}
-```
-
-* **Address Alignment Requirement:** The Linux kernel strictly requires `ptr` to be page-aligned (a multiple of 4,096 bytes). Because `alloc()` calls `mmap()`, all base pointers returned by `alloc()` are guaranteed to be page-aligned. Attempting to free an unaligned address inside a page (e.g., `free(ptr + 16, 100)`) will fail with `EINVAL`.
-* **Length Rounding:** The kernel automatically rounds `size` up to the nearest page boundary (`PAGE_ALIGN(size)`). Freeing 100 bytes from a base pointer unmaps the entire 4,096-byte page containing those bytes.
-
----
-
-### Printing
-
-HT-Speed provides an adaptive, zero-libc **`print()`** built-in:
-
-1. **Printing String Literals:**
-   ```htvm
-   print("Hello, World!\n")
-   ```
-   Emits `sys_write(1, rip_rel_ptr, length)`. Identical string literals are deduplicated in the ELF data pool.
-
-2. **Printing Dynamic Numbers (Inline `itoa`):**
-   ```htvm
-   print(A_Index)        // Prints 0, 1, 2, ...
-   print(fib(10))        // Prints 55
-   print(10 - 50)        // Prints -40
-   ```
-   Calls an internal 111-byte hardware-division `itoa` routine that converts 64-bit signed integers (zero, positive, negative) to ASCII and flushes them to `stdout`.
-
-3. **Printing Raw Memory Buffers:**
-   ```htvm
-   print(buffer_ptr, byte_count)
-   ```
-   Flushes exactly `byte_count` bytes from memory to `stdout` without trailing spaces or buffer overflows.
-
-4. **Printing String Variables:**
-   ```htvm
-   str msg := "Dynamic message\n"
-   print(msg)
-   ```
-   The compiler detects `str` variables and automatically prints the null-terminated string text.
-
----
-
-### Command-Line Arguments (`GetParams`)
-
-Access command-line arguments passed from the shell using the built-in **`GetParams()`** function:
+The `print()` built-in handles literals, signed integers, and dynamic buffers:
 
 ```htvm
 main
+; 1. Print string literal (zero allocation, RIP-relative sys_write)
+print("Hello!\n")
+
+; 2. Print signed integer (invokes internal 111-byte hardware itoa)
+print(10 - 50) ; Prints -40
+
+; 3. Print raw memory buffer by pointer and length
+int buf := alloc(8)
+[buf] := 65
+print(buf, 1) ; Prints 'A'
+exit(0)
+```
+
+---
+
+### 12. Command-Line Arguments (`GetParams`)
+
+Access shell arguments passed to your executable via `GetParams()`:
+
+```htvm
+main
+; Returns arguments (argv[1]..argv[n]) separated by newlines
 str params := GetParams()
 print(params)
 exit(0)
 ```
 
-* Returns a single heap-allocated string containing all arguments (`argv[1]` through `argv[argc-1]`) separated by newlines (`\n`).
-* If no arguments are passed, it returns an empty string `""`.
-
 ---
 
-### First-Class Kernel Syscalls
+### 13. Kernel Syscalls (`syscall`)
 
-The **`syscall()`** primitive exposes the hardware kernel trap directly as both a statement and an expression:
+Invoke Linux x86-64 kernel syscalls directly without assembly boilerplate:
 
 ```htvm
-// Use as an expression (captures kernel return value in RAX!)
-int bytes_read := syscall(0, 0, buffer, 64)
+main
+int buf := alloc(64)
 
-// Use as a statement
-syscall(1, 1, buffer, bytes_read)
+; sys_read(fd=0, buf=buf, count=64) -> RAX returns bytes read
+int bytes_read := syscall(0, 0, buf, 64)
+
+; sys_write(fd=1, buf=buf, count=bytes_read)
+syscall(1, 1, buf, bytes_read)
+
+exit(0)
 ```
 
-#### Register Mapping (Linux x86-64 ABI)
-* `number` $\rightarrow$ `RAX`
-* `arg1` $\rightarrow$ `RDI`
-* `arg2` $\rightarrow$ `RSI`
-* `arg3` $\rightarrow$ `RDX`
-* `arg4` $\rightarrow$ `R10` *(Kernel uses R10 instead of RCX)*
-* `arg5` $\rightarrow$ `R8`
-* `arg6` $\rightarrow$ `R9`
-
-Returns the kernel's result code in `RAX`.
+* Syscall Register Mapping: `RAX` = number, `RDI` = arg1, `RSI` = arg2, `RDX` = arg3, `R10` = arg4, `R8` = arg5, `R9` = arg6.
 
 ---
 
-## Complete Examples
+### 14. File Inclusion (`include`)
 
-### 1. Minimal Hello World (198 bytes)
+Split programs into modular files using `include`:
 
-Save as `hello.hts`:
+```htvm
+include "math_utils.hts"
+
+main
+int result := compute_val(10)
+print(result)
+exit(0)
+```
+
+* Included files are spliced directly into the source stream during lexical preprocessing.
+
+---
+
+## Complete Runnable Examples
+
+### Minimal Hello World (198 Bytes)
+
+Save as `examples/hello.hts`:
 ```htvm
 main
 print("Hello, World!\n")
-exit(69)
+exit(0)
 ```
 
-Compile and inspect:
+Compile and run:
 ```bash
-./htspeed_cib hello.hts hello
+./htspeed_cib examples/hello.hts hello
 ./hello
-echo $?
-# Output: 69
+# Output: Hello, World!
 
 ls -lh hello
 # Output: 198 bytes!
@@ -506,223 +510,131 @@ ls -lh hello
 
 ---
 
-### 2. Recursive Fibonacci & Dynamic itoa (686 bytes)
+### Structs, Functions & String Concat
 
-Save as `fib.hts`:
+Save as `examples/demo.hts`:
 ```htvm
-func int fib(int n) {
-    if (n <= 1) {
-        return n
-    }
-    return fib(n - 1) + fib(n - 2)
+struct Player {
+    int health
+    int speed
+}
+
+func int heal(int current_hp, int amount) {
+    return current_hp + amount
 }
 
 main
-print("Loop counter A_Index:\n")
-Loop, 5 {
-    print(A_Index)
-}
+; Allocate struct dynamically
+int p := new Player
+p.health := 100
+p.speed := 25
 
-print("Computing fib(10):\n")
-int result := fib(10)
-print(result)
+; Mutate via function call
+p.health := heal(p.health, 50)
 
-print("Negative number test:\n")
-int neg := 10 - 50
-print(neg)
+print("Player HP:\n")
+print(p.health)
 
+str msg := "Status: " . "Ready!\n"
+print(msg)
 exit(0)
 ```
 
 Compile and run:
 ```bash
-./htspeed_cib fib.hts fib_app
-./fib_app
-ls -lh fib_app
-# Output: 686 bytes!
+./htspeed_cib examples/demo.hts demo
+./demo
 ```
 
 ---
 
-### 3. Structs, Bitwise & Command-Line Arguments
+### Dynamic Heap Bubble Sort
 
-Save as `demo.hts`:
+Save as `examples/bubble.hts`:
 ```htvm
-int global_base := 100
-
-struct Player
-    int health
-    int mana
-subout
-
 main
-// Structs
-int p := alloc(16)
-p.health := 250
-p.mana := 80
-print(p.health)
+int arr := alloc(40) ; Space for 5 integers (5 * 8 bytes)
+[arr + 0] := 50
+[arr + 8] := 20
+[arr + 16] := 40
+[arr + 24] := 10
+[arr + 32] := 30
 
-// Bitwise
-print(1 << 5)        // 32
-print(0xFF & 0x0F)   // 15
-
-// Conditionals
-if (p.health = 250) or (p.mana = 0) {
-    print("Condition passed!\n")
+int n := 5
+int i := 0
+while (i < n) {
+    int j := 0
+    while (j < n - 1) {
+        int a := [arr + j * 8]
+        int b := [arr + (j + 1) * 8]
+        if (a > b) {
+            [arr + j * 8] := b
+            [arr + (j + 1) * 8] := a
+        }
+        j := j + 1
+    }
+    i := i + 1
 }
 
-// String Concat
-str greeting := "Hello " . "World!\n"
-print(greeting)
-
-// Command Line Arguments
-str args := GetParams()
-print(args)
-
+; Print sorted elements
+int k := 0
+while (k < n) {
+    print([arr + k * 8])
+    k := k + 1
+}
 exit(0)
 ```
 
-Compile and run with arguments:
+Compile and run:
 ```bash
-./htspeed_cib demo.hts demo_app
-./demo_app foo bar 1337
-```
-
----
-
-### 4. Dynamic Heap Arrays & Byte-by-Byte Strings
-
-Save as `arrays.hts`:
-```htvm
-main
-print("=== Dynamic Integer Array ===\n")
-int arr := alloc(80) // 10 integers
-int count := 5
-
-// Populate array: arr[i] = (i + 1) * 10
-Loop, count {
-    int val := (A_Index + 1) * 10
-    [arr + A_Index * 8] := val
-}
-
-// Read back from heap
-Loop, count {
-    int item := [arr + A_Index * 8]
-    print(item)
-}
-
-// Mutate element
-[arr + 2 * 8] := 999
-print([arr + 2 * 8])
-
-print("=== Dynamic Byte String ===\n")
-int str_buf := alloc(32)
-byte[str_buf + 0] := 72  // 'H'
-byte[str_buf + 1] := 84  // 'T'
-byte[str_buf + 2] := 83  // 'S'
-byte[str_buf + 3] := 80  // 'P'
-byte[str_buf + 4] := 69  // 'E'
-byte[str_buf + 5] := 69  // 'E'
-byte[str_buf + 6] := 68  // 'D'
-byte[str_buf + 7] := 10  // '\n'
-
-print(str_buf, 8)
-exit(0)
-```
-
----
-
-### 5. Interactive Terminal Echo
-
-Save as `echo.hts`:
-```htvm
-main
-print("Type something and press ENTER:\n")
-
-int mem := alloc(128)
-
-// sys_read returns the exact number of bytes typed into 'typed_bytes'
-int typed_bytes := syscall(0, 0, mem, 128)
-
-print("You typed (exact bytes, zero trailing spaces):\n")
-print(mem, typed_bytes)
-
-print("Exact byte count:\n")
-print(typed_bytes)
-
-exit(0)
-```
-
----
-
-### 6. Heap Allocation & Explicit Freeing (`sys_munmap`)
-
-Save as `free_test.hts`:
-```htvm
-func void free(int ptr, int size) {
-    syscall(11, ptr, size) // sys_munmap
-}
-
-main
-print("Allocating 4096 bytes...\n")
-int buf := alloc(4096)
-
-[buf] := 42
-print("Value: \n")
-print([buf])
-
-print("Freeing back to Linux kernel...\n")
-free(buf, 4096)
-print("Memory returned successfully!\n")
-
-exit(0)
+./htspeed_cib examples/bubble.hts bubble
+./bubble
+# Output:
+# 10
+# 20
+# 30
+# 40
+# 50
 ```
 
 ---
 
 ## The 120-Byte ELF Layout
 
-HT-Speed outputs a minimal, compliant Linux ELF64 binary using a **single RWX segment** (the `cib` layout):
+HT-Speed emits static Linux ELF executables using a minimal single RWX segment:
 
 ```text
 ┌────────────────────────────────────────────────────────┐
 │ Elf64_Ehdr (64 bytes)                                  │ ◄── e_entry: 0x400078
 ├────────────────────────────────────────────────────────┤
-│ Elf64_Phdr (56 bytes, PT_LOAD, PF_R | PF_W | PF_X)     │ ◄── Maps file to 0x400000
+│ Elf64_Phdr (56 bytes, PT_LOAD, PF_R | PF_W | PF_X)     │ ◄── Maps executable to 0x400000
 ├────────────────────────────────────────────────────────┤
-│ Machine Code (Direct x86-64 opcodes)                  │ ◄── Executes immediately
+│ Machine Code (Direct x86-64 machine instructions)      │ ◄── Entry point execution
 ├────────────────────────────────────────────────────────┤
-│ Embedded Data Pool (String literals & Globals)         │ ◄── RIP-relative addressing
+│ Data Pool (String literals & Global variables)         │ ◄── Position-independent [RIP + disp]
 └────────────────────────────────────────────────────────┘
 ```
 
-* **Header Size:** Exactly 120 bytes ($64 + 56$).
-* **Section Headers:** 0 (omitted for size).
-* **Dynamic Libraries:** 0. `ldd` reports `not a dynamic executable`.
-
----
-
-## Current Limits
-
-HT-Speed v0.4 is designed for maximum compilation throughput and a minimal binary footprint:
-
-1. **Integer-Only Math:** Arithmetic is performed on 64-bit signed integers. Floating-point registers (SSE/AVX) are not emitted.
-2. **Platform Specific:** Hardcoded to emit Linux x86-64 syscalls and ELF64 headers.
+* **ELF Header:** 64 bytes
+* **Program Header:** 56 bytes
+* **Combined Headers:** Exactly 120 bytes ($64 + 56$).
+* **Section Headers:** 0 (Completely omitted; unnecessary for direct execution).
+* **Dependencies:** 0 (`ldd` reports `not a dynamic executable`).
 
 ---
 
 ## Author & Ecosystem
 
-Created by **TheMaster1127** (aka *Mr. Compiler*), a low-level programmer, reverse engineer, and language designer.
+Developed by **TheMaster1127** (aka *Mr. Compiler*), a low-level systems programmer and reverse engineer.
 
 * **GitHub:** [@TheMaster1127](https://github.com/TheMaster1127)
 * **Related Projects:**
-  * [cib (C-Is-Bloated)](https://github.com/TheMaster1127/C-is-bloated) — Strips C binaries down to 169 bytes.
-  * [binpatch](https://github.com/TheMaster1127/binpatch) — Binary patching and analysis tool.
+  * [cib (C-Is-Bloated)](https://github.com/TheMaster1127/C-is-bloated) — Strips C binaries down to 169 bytes with zero libc.
+  * [binpatch](https://github.com/TheMaster1127/binpatch) — Binary patching and inspection utility.
   * [HT-RE](https://github.com/TheMaster1127/HT-RE) — Reverse engineering suite for Linux.
 
 ---
 
 ## License
 
-This project is open-source under the **GNU General Public License v3.0 (GPLv3)**.
+This project is open-source software licensed under the **GNU General Public License v3.0 (GPLv3)**.

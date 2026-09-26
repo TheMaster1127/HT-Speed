@@ -1,0 +1,18 @@
+main
+int a := 1
+int b := 0
+int c := 1
+int d := 1
+
+if ((a = 1) and (b = 1)) or ((c = 1) and (d = 1)) {
+    print("pass_or\n")
+} else {
+    print("fail_or\n")
+}
+
+if ((a = 1) or (b = 1)) and ((c = 0) or (d = 0)) {
+    print("fail_and\n")
+} else {
+    print("pass_and\n")
+}
+exit(0)

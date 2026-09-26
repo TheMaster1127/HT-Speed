@@ -1,0 +1,7 @@
+func int add(int a, int b) { return a + b }
+func int mul(int a, int b) { return a * b }
+
+main
+int res := add(mul(2, 3), add(4, mul(5, 2)))
+print(res)
+exit(0)
