@@ -93,10 +93,14 @@ static void parse_primary(void) {
         emit_u8(0x45); emit_u8(0x31); emit_u8(0xC9);
         emit_u8(0xB8); emit_u32(9);
         emit_u8(0x0F); emit_u8(0x05);
-    } else if (cur_tok.kind == TOK_BIT_NOT) {
+	} else if (cur_tok.kind == TOK_BIT_NOT) {
         next_token();
         parse_primary();
-        emit_u8(0x48); emit_u8(0xF7); emit_u8(0xD0);
+        emit_u8(0x48); emit_u8(0xF7); emit_u8(0xD0); // not rax
+    } else if (cur_tok.kind == TOK_MINUS) {
+        next_token();
+        parse_primary();
+        emit_u8(0x48); emit_u8(0xF7); emit_u8(0xD8); // neg rax
     } else if (cur_tok.kind == TOK_LBRACKET) {
         next_token();
         parse_expression();

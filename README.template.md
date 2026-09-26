@@ -42,7 +42,7 @@ Modern language toolchains suffer from massive abstraction layers:
 HT-Speed flattens the entire compilation pipeline into pure memory operations:
 * **Zero Assembly Text:** Source tokens are translated directly into physical x86-64 machine code bytes in a single streaming pass.
 * **Zero Libc Runtime:** Output binaries communicate directly with the Linux kernel via raw hardware syscalls (`sys_write`, `sys_read`, `sys_mmap`, `sys_munmap`, `sys_exit`).
-* **Sub-Millisecond Speed:** The compiler executes directly on bare-metal silicon in sub-400 microseconds, burns ~33,000 CPU cycles, and completes entire compilations inside 18 page faults.
+* **Sub-Millisecond Speed:** The compiler executes directly on bare-metal silicon in sub-400 microseconds, burns ~33,000 CPU cycles, and completes entire compilations inside {{PAGE_FAULTS}} page faults.
 
 ---
 
@@ -50,16 +50,9 @@ HT-Speed flattens the entire compilation pipeline into pure memory operations:
 
 Measured on **Artix Linux x86-64 physical hardware** across **100 consecutive runs back-to-back** using `perf stat -r 100` compiling identical workloads (`test_speed/test.hts` vs `test_speed/test.c`):
 
-| Metric | TinyCC (`tcc`) | HT-Speed (`htspeed_cib`) | Hardware Advantage |
-| :--- | :--- | :--- | :--- |
-| **CPU Cycles Burned** | **5,338,207** | **32,786** | **162.8× FEWER CYCLES** |
-| **Kernel Page Faults** | **327** | **18** | **18.2× FEWER PAGE FAULTS** |
-| **Active Task-Clock (CPU time)** | **2.75 ms** | **0.30 ms** | **9.2× FASTER CPU TIME** |
-| **Elapsed Wall-Clock Time** | **0.002933810 s** | **0.000436445 s** | **6.7× FASTER WALL CLOCK** |
-| **Branches Evaluated** | **1,568,023** | **9,797** | **160.1× FEWER BRANCHES** |
-| **Output Executable Size** | **4842 bytes** | **945 bytes** | **5.1× SMALLER (Pure Static)** |
+{{BENCHMARK_TABLE}}
 
-> **Demand-Paging Efficiency:** HT-Speed uses high-efficiency BSS tracking, completely avoiding bulk memory wipes. The compiler only touches the physical pages it writes, allowing it to complete entire compilations inside **18 page faults**.
+> **Demand-Paging Efficiency:** HT-Speed uses high-efficiency BSS tracking, completely avoiding bulk memory wipes. The compiler only touches the physical pages it writes, allowing it to complete entire compilations inside **{{PAGE_FAULTS}} page faults**.
 
 ---
 
@@ -68,55 +61,7 @@ Measured on **Artix Linux x86-64 physical hardware** across **100 consecutive ru
 The repository is organized into a clean, modular structure (automatically generated from `.gitignore`):
 
 ```text
-.
-├── examples
-│   ├── echo.hts
-│   ├── hello.hts
-│   ├── math_stress.hts
-│   ├── mega_test.hts
-│   ├── nested.hts
-│   ├── numbers.hts
-│   ├── ttt.hts
-│   └── v4_test.hts
-├── htspeed_cib.c
-├── LICENSE
-├── README.md
-├── src
-│   ├── compiler.h
-│   ├── elf.h
-│   ├── emitter.h
-│   ├── expr.h
-│   ├── lexer.h
-│   ├── parser.h
-│   ├── runtimes.h
-│   ├── stmt.h
-│   ├── string.h
-│   ├── syscalls.h
-│   ├── tables.h
-│   └── types.h
-├── tests
-│   ├── 01_hello.expected
-│   ├── 01_hello.hts
-│   ├── 02_function.expected
-│   ├── 02_function.hts
-│   ├── 03_fib.expected
-│   ├── 03_fib.hts
-... more ...
-│   ├── 49_mutual_recursion.hts
-│   ├── 50_bitwise_stress.expected
-│   ├── 50_bitwise_stress.hts
-│   ├── 51_func_stmt.expected
-│   ├── 51_func_stmt.hts
-│   ├── inc_helper.inc
-│   ├── setup.sh
-│   └── test.sh
-├── test.sh
-├── test_speed
-│   ├── test.c
-│   └── test.hts
-└── ttt.hts
-
-5 directories, 134 files
+{{DIR_TREE}}
 ```
 
 ---
@@ -157,7 +102,7 @@ HT-Speed uses a **Unity Build** architecture. Rather than compiling independent 
 
 ## Building HT-Speed
 
-Compiling HT-Speed requires [cib](https://github.com/TheMaster1127/C-is-bloated), producing a **23K static compiler binary**:
+Compiling HT-Speed requires [cib](https://github.com/TheMaster1127/C-is-bloated), producing a **{{COMPILER_SIZE}} static compiler binary**:
 
 ```bash
 # Compile HT-Speed with balanced bare-metal optimization (-Z4)
@@ -168,7 +113,7 @@ file htspeed_cib
 # Output: ELF 64-bit LSB executable, x86-64, statically linked, no section header
 
 ls -lh htspeed_cib
-# Output: 23K htspeed_cib
+# Output: {{COMPILER_SIZE}} htspeed_cib
 ```
 
 > **Note on -Z flag:** Do NOT use the `-Z5` flag. It causes a segmentation fault triggered by GCC's `-O3` optimization tier in the background. Anything else is valid. Always use either `-Z4` for maximum compilation speed of your compiler, or `-Z0` (the default) for the smallest compiler binary size. Even the Linux kernel refuses to compile with `-O3` because it breaks when you push C to the bare metal.
@@ -177,10 +122,10 @@ ls -lh htspeed_cib
 
 ## Running the Test Suite
 
-The test suite contains **51 automated test cases** covering arithmetic, recursion, loops, nested breaks, mutual recursion, bitwise logic, heap bubble sorting, and command-line parsing.
+The test suite contains **{{TEST_COUNT}} automated test cases** covering arithmetic, recursion, loops, nested breaks, mutual recursion, bitwise logic, heap bubble sorting, and command-line parsing.
 
 ```bash
-# Run all 51 tests
+# Run all {{TEST_COUNT}} tests
 ./test.sh
 
 # Debug a specific test (e.g. test 45) with verbose source, diff, and hexdumps
@@ -244,7 +189,7 @@ Compile and inspect:
 # Output: Hello, World!
 
 ls -lh hello
-# Output: 198 bytes!
+# Output: {{HELLO_SIZE}} bytes!
 ```
 
 ---
@@ -325,7 +270,7 @@ See `examples/ttt.hts` for a complete, two-player interactive terminal Tic-Tac-T
 ./ttt
 ```
 
-Output binary size: **3782 bytes** (statically linked, zero libc).
+Output binary size: **{{TTT_SIZE}} bytes** (statically linked, zero libc).
 
 ---
 
@@ -368,8 +313,3 @@ Developed by **TheMaster1127** (aka *Mr. Compiler*), a low-level systems program
 ## License
 
 This project is open-source software licensed under the **GNU General Public License v3.0 (GPLv3)**.
-} else if (cur_tok.kind == TOK_BIT_NOT) {
-        next_token();
-        parse_primary();
-        emit_u8(0x48); emit_u8(0xF7); emit_u8(0xD0);
-    }
