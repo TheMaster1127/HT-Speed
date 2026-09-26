@@ -1,0 +1,30 @@
+main
+int arr := alloc(40) ; Space for 5 integers (5 * 8 bytes)
+[arr + 0] := 50
+[arr + 8] := 20
+[arr + 16] := 40
+[arr + 24] := 10
+[arr + 32] := 30
+
+int n := 5
+int i := 0
+while (i < n) {
+    int j := 0
+    while (j < n - 1) {
+        int a := [arr + j * 8]
+        int b := [arr + (j + 1) * 8]
+        if (a > b) {
+            [arr + j * 8] := b
+            [arr + (j + 1) * 8] := a
+        }
+        j := j + 1
+    }
+    i := i + 1
+}
+
+int k := 0
+while (k < n) {
+    print([arr + k * 8])
+    k := k + 1
+}
+exit(0)

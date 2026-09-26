@@ -1,0 +1,21 @@
+struct Player {
+    int health
+    int speed
+}
+
+func int heal(int current_hp, int amount) {
+    return current_hp + amount
+}
+
+main
+int p := new Player
+p.health := 100
+p.speed := 25
+
+p.health := heal(p.health, 50)
+print("Player HP:\n")
+print(p.health)
+
+str msg := "Status: " . "Ready!\n"
+print(msg)
+exit(0)

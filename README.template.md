@@ -175,7 +175,7 @@ exit(0)
 
 ### 1. Minimal Hello World
 
-Save as `examples/hello.hts`:
+`examples/hello.hts`:
 ```htvm
 main
 print("Hello, World!\n")
@@ -196,7 +196,7 @@ ls -lh hello
 
 ### 2. Structs, Functions & String Concat
 
-Save as `examples/demo.hts`:
+`examples/demo.hts`:
 ```htvm
 struct Player {
     int health
@@ -225,7 +225,7 @@ exit(0)
 
 ### 3. Dynamic Heap Bubble Sort
 
-Save as `examples/bubble.hts`:
+`examples/bubble.hts`:
 ```htvm
 main
 int arr := alloc(40) ; Space for 5 integers (5 * 8 bytes)

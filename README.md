@@ -52,11 +52,11 @@ Measured on **Artix Linux x86-64 physical hardware** across **100 consecutive ru
 
 | Metric | TinyCC (`tcc`) | HT-Speed (`htspeed_cib`) | Hardware Advantage |
 | :--- | :--- | :--- | :--- |
-| **CPU Cycles Burned** | **5,338,207** | **32,786** | **162.8× FEWER CYCLES** |
+| **CPU Cycles Burned** | **5,252,191** | **33,758** | **155.6× FEWER CYCLES** |
 | **Kernel Page Faults** | **327** | **18** | **18.2× FEWER PAGE FAULTS** |
-| **Active Task-Clock (CPU time)** | **2.75 ms** | **0.30 ms** | **9.2× FASTER CPU TIME** |
-| **Elapsed Wall-Clock Time** | **0.002933810 s** | **0.000436445 s** | **6.7× FASTER WALL CLOCK** |
-| **Branches Evaluated** | **1,568,023** | **9,797** | **160.1× FEWER BRANCHES** |
+| **Active Task-Clock (CPU time)** | **2.77 ms** | **0.27 ms** | **10.3× FASTER CPU TIME** |
+| **Elapsed Wall-Clock Time** | **0.002958415 s** | **0.000402739 s** | **7.3× FASTER WALL CLOCK** |
+| **Branches Evaluated** | **1,432,728** | **9,797** | **146.2× FEWER BRANCHES** |
 | **Output Executable Size** | **4842 bytes** | **945 bytes** | **5.1× SMALLER (Pure Static)** |
 
 > **Demand-Paging Efficiency:** HT-Speed uses high-efficiency BSS tracking, completely avoiding bulk memory wipes. The compiler only touches the physical pages it writes, allowing it to complete entire compilations inside **18 page faults**.
@@ -70,6 +70,8 @@ The repository is organized into a clean, modular structure (automatically gener
 ```text
 .
 ├── examples
+│   ├── bubble.hts
+│   ├── demo.hts
 │   ├── echo.hts
 │   ├── hello.hts
 │   ├── math_stress.hts
@@ -100,21 +102,19 @@ The repository is organized into a clean, modular structure (automatically gener
 │   ├── 02_function.expected
 │   ├── 02_function.hts
 │   ├── 03_fib.expected
-│   ├── 03_fib.hts
 ... more ...
+│   ├── 49_mutual_recursion.expected
 │   ├── 49_mutual_recursion.hts
 │   ├── 50_bitwise_stress.expected
 │   ├── 50_bitwise_stress.hts
 │   ├── 51_func_stmt.expected
 │   ├── 51_func_stmt.hts
 │   ├── inc_helper.inc
-│   ├── setup.sh
-│   └── test.sh
+│   └── setup.sh
 ├── test.sh
-├── test_speed
-│   ├── test.c
-│   └── test.hts
-└── ttt.hts
+└── test_speed
+    ├── test.c
+    └── test.hts
 
 5 directories, 134 files
 ```
@@ -230,7 +230,7 @@ exit(0)
 
 ### 1. Minimal Hello World
 
-Save as `examples/hello.hts`:
+`examples/hello.hts`:
 ```htvm
 main
 print("Hello, World!\n")
@@ -251,7 +251,7 @@ ls -lh hello
 
 ### 2. Structs, Functions & String Concat
 
-Save as `examples/demo.hts`:
+`examples/demo.hts`:
 ```htvm
 struct Player {
     int health
@@ -280,7 +280,7 @@ exit(0)
 
 ### 3. Dynamic Heap Bubble Sort
 
-Save as `examples/bubble.hts`:
+`examples/bubble.hts`:
 ```htvm
 main
 int arr := alloc(40) ; Space for 5 integers (5 * 8 bytes)
@@ -368,8 +368,3 @@ Developed by **TheMaster1127** (aka *Mr. Compiler*), a low-level systems program
 ## License
 
 This project is open-source software licensed under the **GNU General Public License v3.0 (GPLv3)**.
-} else if (cur_tok.kind == TOK_BIT_NOT) {
-        next_token();
-        parse_primary();
-        emit_u8(0x48); emit_u8(0xF7); emit_u8(0xD0);
-    }
