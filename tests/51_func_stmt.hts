@@ -1,0 +1,13 @@
+func void say_hi() {
+    print("hello from void func\n")
+}
+
+func int mutate(int a) {
+    print(a * 2)
+    return a * 2
+}
+
+main
+say_hi()
+mutate(21)
+exit(0)

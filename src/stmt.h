@@ -287,6 +287,46 @@ static void parse_statement(void) {
         m_strncpy(name, cur_tok.str_val, 63);
         next_token();
 
+        // 1. Function Call Statement: draw_board(board, scr)
+        if (cur_tok.kind == TOK_LPAREN) {
+            next_token();
+            int arg_count = 0;
+            while (cur_tok.kind != TOK_RPAREN) {
+                parse_expression();
+                emit_u8(0x50);
+                arg_count++;
+                if (cur_tok.kind == TOK_COMMA) next_token();
+                else break;
+            }
+            expect(TOK_RPAREN);
+
+            for (int i = arg_count - 1; i >= 0; i--) {
+                switch (i) {
+                    case 0: emit_u8(0x5F); break;
+                    case 1: emit_u8(0x5E); break;
+                    case 2: emit_u8(0x5A); break;
+                    case 3: emit_u8(0x59); break;
+                    case 4: emit_u8(0x41); emit_u8(0x58); break;
+                    case 5: emit_u8(0x41); emit_u8(0x59); break;
+                    default: emit_u8(0x58); break;
+                }
+            }
+
+            emit_u8(0xE8);
+            Function *fn = find_func(name);
+            if (fn && fn->is_defined) {
+                int32_t disp = (int32_t)(fn->code_offset - (C.code_len + 4));
+                emit_u32(disp);
+            } else {
+                C.func_fixups[C.fixup_count].patch_site = C.code_len;
+                m_strncpy(C.func_fixups[C.fixup_count].target_func, name, 63);
+                C.fixup_count++;
+                emit_u32(0);
+            }
+            return;
+        }
+
+        // 2. Struct Field Assignment: p.x := 10
         if (cur_tok.kind == TOK_DOT) {
             next_token();
             char field_name[64];
@@ -314,6 +354,7 @@ static void parse_statement(void) {
             return;
         }
 
+        // 3. Variable Assignment: x := 10
         if (cur_tok.kind == TOK_ASSIGN) {
             next_token();
             parse_expression();

@@ -675,5 +675,23 @@ exit(0)
 EOF
 printf '245\n' > 50_bitwise_stress.expected
 
+# 51 - Standalone function calls as statements
+cat > 51_func_stmt.hts << 'EOF'
+func void say_hi() {
+    print("hello from void func\n")
+}
+
+func int mutate(int a) {
+    print(a * 2)
+    return a * 2
+}
+
+main
+say_hi()
+mutate(21)
+exit(0)
+EOF
+printf 'hello from void func\n42\n' > 51_func_stmt.expected
+
 
 echo "Created $(ls *.hts | wc -l) test files in $(pwd)"

@@ -21,20 +21,22 @@ Built by [TheMaster1127](https://github.com/TheMaster1127) using [cib (C-Is-Bloa
   - [2. Comments (`;`, `//`, `#`, `/* */`)](#2-comments)
   - [3. Types & Memory Model](#3-types--memory-model)
   - [4. Variables & Assignment (`:=` vs `=`)](#4-variables--assignment--vs-)
-  - [5. Structs & Automatic Allocation (`new`)](#5-structs--automatic-allocation-new)
-  - [6. Operators & Precedence](#6-operators--precedence)
-  - [7. Control Flow (`if` / `else`)](#7-control-flow-if--else)
-  - [8. Counted Loops (`Loop, count` & `A_Index`)](#8-counted-loops-loop-count--a_index)
-  - [9. Conditional Loops (`while`)](#9-conditional-loops-while)
-  - [10. Dynamic Memory & Dereferencing (`alloc`, `[ptr]`, `byte[ptr]`)](#10-dynamic-memory--dereferencing)
-  - [11. Printing (`print`)](#11-printing-print)
-  - [12. Command-Line Arguments (`GetParams`)](#12-command-line-arguments-getparams)
-  - [13. Kernel Syscalls (`syscall`)](#13-kernel-syscalls-syscall)
-  - [14. File Inclusion (`include`)](#14-file-inclusion-include)
+  - [5. Functions (Expressions & Standalone Statements)](#5-functions-expressions--standalone-statements)
+  - [6. Structs & Automatic Allocation (`new`)](#6-structs--automatic-allocation-new)
+  - [7. Operators & Precedence](#7-operators--precedence)
+  - [8. Control Flow (`if` / `else`)](#8-control-flow-if--else)
+  - [9. Counted Loops (`Loop, count` & `A_Index`)](#9-counted-loops-loop-count--a_index)
+  - [10. Conditional Loops (`while`)](#10-conditional-loops-while)
+  - [11. Dynamic Memory & Dereferencing (`alloc`, `[ptr]`, `byte[ptr]`)](#11-dynamic-memory--dereferencing)
+  - [12. Printing (`print`)](#12-printing-print)
+  - [13. Command-Line Arguments (`GetParams`)](#13-command-line-arguments-getparams)
+  - [14. Kernel Syscalls (`syscall`)](#14-kernel-syscalls-syscall)
+  - [15. File Inclusion (`include`)](#15-file-inclusion-include)
 - [Complete Runnable Examples](#complete-runnable-examples)
   - [Minimal Hello World (198 Bytes)](#minimal-hello-world-198-bytes)
   - [Structs, Functions & String Concat](#structs-functions--string-concat)
   - [Dynamic Heap Bubble Sort](#dynamic-heap-bubble-sort)
+  - [Interactive Zero-Libc Tic-Tac-Toe (3.8 KB)](#interactive-zero-libc-tic-tac-toe-38-kb)
 - [The 120-Byte ELF Layout](#the-120-byte-elf-layout)
 - [Author & Ecosystem](#author--ecosystem)
 - [License](#license)
@@ -55,7 +57,7 @@ Modern language toolchains suffer from massive abstraction layers:
 HT-Speed flattens the entire compilation pipeline into pure memory operations:
 * **Zero Assembly Text:** Source tokens are translated directly into physical x86-64 machine code bytes in a single streaming pass.
 * **Zero Libc Runtime:** Output binaries communicate directly with the Linux kernel via raw hardware syscalls (`sys_write`, `sys_read`, `sys_mmap`, `sys_munmap`, `sys_exit`).
-* **Sub-Millisecond Speed:** The compiler runs in **~330 microseconds**, burns **34,000 CPU cycles**, incurs only **19 kernel page faults**, and outputs standalone executables starting at **198 bytes**.
+* **Sub-Millisecond Speed:** The compiler executes in **~300 microseconds**, burns only **~33,600 CPU cycles**, incurs only **18 page faults**, and outputs standalone executables starting at **198 bytes**.
 
 ---
 
@@ -63,18 +65,18 @@ HT-Speed flattens the entire compilation pipeline into pure memory operations:
 
 Measured on **Artix Linux x86-64 physical hardware** (averaged across **100 consecutive runs back-to-back** using `perf stat -r 100` compiling identical workloads):
 
-### Workload: `test.hts` vs `test.c` (Nested calls, loops, variables, math, branching, and I/O)
+### Workload: `test_speed/test.hts` vs `test_speed/test.c` (Nested calls, loops, variables, math, branching, and I/O)
 
 | Metric | TinyCC (`tcc`) | HT-Speed (`htspeed_cib`) | Hardware Advantage |
 | :--- | :--- | :--- | :--- |
-| **CPU Cycles Burned** | **5,355,076** | **33,805** | **158.4× FEWER CYCLES** |
-| **Kernel Page Faults** | **327** | **19** | **17.2× FEWER PAGE FAULTS** |
-| **Active Task-Clock (CPU time)** | **2.76 ms** | **0.28 ms (280 µs)** | **9.8× FASTER CPU TIME** |
+| **CPU Cycles Burned** | **5,355,076** | **33,666** | **159× FEWER CYCLES** |
+| **Kernel Page Faults** | **327** | **18** | **18.1× FEWER PAGE FAULTS** |
+| **Active Task-Clock (CPU time)** | **2.76 ms** | **0.27 ms (270 µs)** | **10.2× FASTER CPU TIME** |
 | **Elapsed Wall-Clock Time** | **2.95 ms** | **0.39 ms (390 µs)** | **7.5× FASTER WALL CLOCK** |
-| **Branches Evaluated** | **1,531,439** | **9,798** | **156× FEWER BRANCHES** |
+| **Branches Evaluated** | **1,531,439** | **9,797** | **156× FEWER BRANCHES** |
 | **Output Executable Size** | **4,800 bytes** | **929 bytes** | **5.1× SMALLER (Pure Static)** |
 
-> **Demand-Paging Efficiency:** HT-Speed uses high-efficiency BSS tracking, completely avoiding bulk memory wipes. The compiler only touches the physical pages it writes, allowing it to complete entire compilations inside **19 page faults**.
+> **Demand-Paging Efficiency:** HT-Speed uses high-efficiency BSS tracking, completely avoiding bulk memory wipes. The compiler only touches the physical pages it writes, allowing it to complete entire compilations inside **18 page faults**.
 
 ---
 
@@ -103,13 +105,14 @@ HT-Speed/
 │   ├── math_stress.hts   # Arithmetic, modulo, and precedence stress
 │   ├── mega_test.hts     # Heap memory, while loops, and clean I/O
 │   ├── echo.hts          # Zero-libc raw terminal echo
-│   └── v4_test.hts       # Structs, bitwise, string concat, and GetParams
+│   ├── v4_test.hts       # Structs, bitwise, string concat, and GetParams
+│   └── ttt.hts           # Complete interactive terminal Tic-Tac-Toe
 ├── test_speed/           # Benchmark comparison workloads
 │   ├── test.hts          # HT-Speed benchmark workload
 │   └── test.c            # Equivalent C benchmark workload for TCC
-├── tests/                # Automated test suite (50 test cases)
+├── tests/                # Automated test suite (51 test cases)
 │   ├── setup.sh          # Test suite generator script
-│   └── test.sh           # Test harness runner
+│   └── test.sh           # Internal test harness runner
 ├── htspeed_cib.c         # Root compiler driver (extracts [rsp + 8])
 ├── test.sh               # Root test runner script
 └── README.md
@@ -153,7 +156,7 @@ HT-Speed uses a **Unity Build** architecture. Rather than compiling independent 
 
 ## Building HT-Speed
 
-Compiling HT-Speed requires [cib](https://github.com/TheMaster1127/C-is-bloated), which strips all standard library bloat and produces a **22 KB static compiler binary**:
+Compiling HT-Speed requires [cib](https://github.com/TheMaster1127/C-is-bloated), which strips all standard library bloat and produces a **23 KB static compiler binary**:
 
 ```bash
 # Compile HT-Speed with balanced bare-metal optimization (-Z4)
@@ -164,7 +167,7 @@ file htspeed_cib
 # Output: ELF 64-bit LSB executable, x86-64, statically linked, no section header
 
 ls -lh htspeed_cib
-# Output: 22K htspeed_cib
+# Output: 23K htspeed_cib
 ```
 
 > **Note on -Z flag:** Do NOT use the `-Z5` flag. It causes a segmentation fault triggered by GCC's `-O3` optimization tier in the background. Anything else is valid. Always use either `-Z4` for maximum compilation speed of your compiler, or `-Z0` (the default) for the smallest compiler binary size. Before blaming me for any issues: this is not my fault, it is 100% GCC's fault. Even the Linux kernel refuses to compile with `-O3` because it breaks when you push C to the bare metal. So do NOT use `-Z5` (`-O3`), as GCC's aggressive loop vectorization assumes 16-byte aligned glibc stack frames that break bare-metal runtimes.
@@ -173,10 +176,10 @@ ls -lh htspeed_cib
 
 ## Running the Test Suite
 
-The test suite contains **50 automated test cases** covering arithmetic, recursion, loops, nested breaks, mutual recursion, bitwise logic, heap bubble sorting, and command-line parsing.
+The test suite contains **51 automated test cases** covering arithmetic, recursion, loops, nested breaks, mutual recursion, bitwise logic, heap bubble sorting, and command-line parsing.
 
 ```bash
-# Run all 50 tests
+# Run all 51 tests
 ./test.sh
 
 # Debug a specific test (e.g. test 45) with verbose source, diff, and hexdumps
@@ -269,9 +272,35 @@ exit(0)
 
 ---
 
-### 5. Structs & Automatic Allocation (`new`)
+### 5. Functions (Expressions & Standalone Statements)
 
-Structs define custom 64-bit word memory layouts. Each declared field receives an automatic 8-byte offset:
+Functions can return values or `void`, and can be invoked either inside expressions or directly as standalone statements:
+
+```htvm
+func void say_hello() {
+    print("Hello from function!\n")
+}
+
+func int multiply(int a, int b) {
+    return a * b
+}
+
+main
+; 1. Standalone function call statement
+say_hello()
+
+; 2. Expression assignment
+int result := multiply(6, 7)
+print(result)
+
+exit(0)
+```
+
+---
+
+### 6. Structs & Automatic Allocation (`new`)
+
+Structs define custom 64-bit word memory layouts using standard curly braces `{ ... }`. Each declared field receives an automatic 8-byte offset:
 
 ```htvm
 struct Point {
@@ -292,7 +321,7 @@ exit(0)
 
 ---
 
-### 6. Operators & Precedence
+### 7. Operators & Precedence
 
 HT-Speed implements a Pratt parser with 11 levels of precedence:
 
@@ -325,7 +354,7 @@ exit(0)
 
 ---
 
-### 7. Control Flow (`if` / `else`)
+### 8. Control Flow (`if` / `else`)
 
 Condition expressions do not require wrapping parentheses around the entire statement:
 
@@ -348,7 +377,7 @@ exit(0)
 
 ---
 
-### 8. Counted Loops (`Loop, count` & `A_Index`)
+### 9. Counted Loops (`Loop, count` & `A_Index`)
 
 Counted loops provide hardware-efficient iteration with the built-in variable `A_Index` (0-indexed):
 
@@ -371,7 +400,7 @@ exit(0)
 
 ---
 
-### 9. Conditional Loops (`while`)
+### 10. Conditional Loops (`while`)
 
 ```htvm
 main
@@ -385,7 +414,7 @@ exit(0)
 
 ---
 
-### 10. Dynamic Memory & Dereferencing
+### 11. Dynamic Memory & Dereferencing
 
 HT-Speed allows direct heap allocation and memory access without standard library wrappers:
 
@@ -414,7 +443,7 @@ exit(0)
 
 ---
 
-### 11. Printing (`print`)
+### 12. Printing (`print`)
 
 The `print()` built-in handles literals, signed integers, and dynamic buffers:
 
@@ -435,7 +464,7 @@ exit(0)
 
 ---
 
-### 12. Command-Line Arguments (`GetParams`)
+### 13. Command-Line Arguments (`GetParams`)
 
 Access shell arguments passed to your executable via `GetParams()`:
 
@@ -449,7 +478,7 @@ exit(0)
 
 ---
 
-### 13. Kernel Syscalls (`syscall`)
+### 14. Kernel Syscalls (`syscall`)
 
 Invoke Linux x86-64 kernel syscalls directly without assembly boilerplate:
 
@@ -470,7 +499,7 @@ exit(0)
 
 ---
 
-### 14. File Inclusion (`include`)
+### 15. File Inclusion (`include`)
 
 Split programs into modular files using `include`:
 
@@ -596,6 +625,19 @@ Compile and run:
 # 40
 # 50
 ```
+
+---
+
+### Interactive Zero-Libc Tic-Tac-Toe (3.8 KB)
+
+See `examples/ttt.hts` for a complete, two-player interactive terminal Tic-Tac-Toe. It implements real-time board rendering, input reading via `sys_read`, 8-way line checking, and draw evaluation:
+
+```bash
+./htspeed_cib examples/ttt.hts ttt
+./ttt
+```
+
+Output binary size: **3.8 KB** (statically linked, zero libc).
 
 ---
 

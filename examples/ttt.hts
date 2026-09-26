@@ -1,0 +1,140 @@
+; ===================================================
+; HT-Speed Native Zero-Libc Tic-Tac-Toe
+; ===================================================
+
+func int check_line(int b, int c1, int c2, int c3, int mark) {
+    if (byte[b + c1] = mark) {
+        if (byte[b + c2] = mark) {
+            if (byte[b + c3] = mark) {
+                return 1
+            }
+        }
+    }
+    return 0
+}
+
+func int check_winner(int b, int mark) {
+    ; Rows
+    if (check_line(b, 0, 1, 2, mark) = 1) { return 1 }
+    if (check_line(b, 3, 4, 5, mark) = 1) { return 1 }
+    if (check_line(b, 6, 7, 8, mark) = 1) { return 1 }
+
+    ; Columns
+    if (check_line(b, 0, 3, 6, mark) = 1) { return 1 }
+    if (check_line(b, 1, 4, 7, mark) = 1) { return 1 }
+    if (check_line(b, 2, 5, 8, mark) = 1) { return 1 }
+
+    ; Diagonals
+    if (check_line(b, 0, 4, 8, mark) = 1) { return 1 }
+    if (check_line(b, 2, 4, 6, mark) = 1) { return 1 }
+
+    return 0
+}
+
+func void draw_board(int b, int scr) {
+    print("\n ")
+    byte[scr] := byte[b + 0]
+    print(scr, 1)
+    print(" | ")
+    byte[scr] := byte[b + 1]
+    print(scr, 1)
+    print(" | ")
+    byte[scr] := byte[b + 2]
+    print(scr, 1)
+
+    print("\n---+---+---\n ")
+    byte[scr] := byte[b + 3]
+    print(scr, 1)
+    print(" | ")
+    byte[scr] := byte[b + 4]
+    print(scr, 1)
+    print(" | ")
+    byte[scr] := byte[b + 5]
+    print(scr, 1)
+
+    print("\n---+---+---\n ")
+    byte[scr] := byte[b + 6]
+    print(scr, 1)
+    print(" | ")
+    byte[scr] := byte[b + 7]
+    print(scr, 1)
+    print(" | ")
+    byte[scr] := byte[b + 8]
+    print(scr, 1)
+    print("\n\n")
+}
+
+main
+; Allocate board (9 bytes) and scratchpad buffer (16 bytes)
+int board := alloc(16)
+int scr := alloc(16)
+int input_buf := alloc(16)
+
+; Initialize board with '1' through '9' (ASCII 49 to 57)
+byte[board + 0] := 49
+byte[board + 1] := 50
+byte[board + 2] := 51
+byte[board + 3] := 52
+byte[board + 4] := 53
+byte[board + 5] := 54
+byte[board + 6] := 55
+byte[board + 7] := 56
+byte[board + 8] := 57
+
+print("=== HT-Speed Zero-Libc Tic-Tac-Toe ===\n")
+
+int turn := 0
+while (turn < 9) {
+    draw_board(board, scr)
+
+    int mark := 88 ; 'X'
+    if (turn % 2 = 1) {
+        mark := 79 ; 'O'
+    }
+
+    if (mark = 88) {
+        print("Player X, choose a cell (1-9): ")
+    } else {
+        print("Player O, choose a cell (1-9): ")
+    }
+
+    ; sys_read(stdin=0, input_buf, 16)
+    syscall(0, 0, input_buf, 16)
+    int ch := byte[input_buf]
+
+    ; Validate ASCII '1' (49) to '9' (57)
+    if (ch < 49) or (ch > 57) {
+        print("\nInvalid choice! Please type a number between 1 and 9.\n")
+        continue
+    }
+
+    int idx := ch - 49
+    int current_val := byte[board + idx]
+
+    ; Check if cell is already taken ('X'=88, 'O'=79)
+    if (current_val = 88) or (current_val = 79) {
+        print("\nThat cell is already taken! Try another.\n")
+        continue
+    }
+
+    ; Place move
+    byte[board + idx] := mark
+
+    ; Check for win
+    if (check_winner(board, mark) = 1) {
+        draw_board(board, scr)
+        if (mark = 88) {
+            print("[+] PLAYER X WINS THE GAME!\n")
+        } else {
+            print("[+] PLAYER O WINS THE GAME!\n")
+        }
+        exit(0)
+    }
+
+    turn := turn + 1
+}
+
+; 9 moves played and no winner -> Draw
+draw_board(board, scr)
+print("[*] IT'S A DRAW!\n")
+exit(0)

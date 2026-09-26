@@ -10,6 +10,7 @@ numbers_app
 mega_app
 v4_app
 test
+ttt
 
 examples/htspeed_cib
 examples/htspeed
@@ -23,5 +24,6 @@ examples/numbers_app
 examples/mega_app
 examples/v4_app
 examples/test
+examples/ttt
 
 test_speed/test
