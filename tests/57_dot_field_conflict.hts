@@ -1,0 +1,11 @@
+struct Player {
+    int health
+    int name
+}
+
+main
+str prefix := "Hello, "
+str name := "World!\n"
+str result := prefix . name
+print(result)
+exit(0)

@@ -1,0 +1,16 @@
+struct Weapon {
+    int damage
+    int durability
+    int value
+}
+
+struct Item {
+    int value
+    int weight
+}
+
+main
+int it := new Item
+it.value := 999
+print(it.value)
+exit(0)

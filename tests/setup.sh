@@ -772,6 +772,44 @@ exit(0)
 EOF
 printf '111\n222\n' > 56_pass_by_pointer.expected
 
+# 57 - String concat when variable name matches a struct field name
+cat > 57_dot_field_conflict.hts << 'EOF'
+struct Player {
+    int health
+    int name
+}
+
+main
+str prefix := "Hello, "
+str name := "World!\n"
+str result := prefix . name
+print(result)
+exit(0)
+EOF
+printf 'Hello, World!\n' > 57_dot_field_conflict.expected
+
+# 58 - Multiple structs sharing a field name at different offsets
+cat > 58_struct_field_collision.hts << 'EOF'
+struct Weapon {
+    int damage
+    int durability
+    int value
+}
+
+struct Item {
+    int value
+    int weight
+}
+
+main
+int it := new Item
+it.value := 999
+print(it.value)
+exit(0)
+EOF
+printf '999\n' > 58_struct_field_collision.expected
+
+
 
 
 echo "Created $(ls *.hts | wc -l) test files in $(pwd)"

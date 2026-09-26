@@ -57,11 +57,11 @@ Measured on **Artix Linux x86-64 physical hardware** across **100 consecutive ru
 
 | Metric | TinyCC (`tcc`) | HT-Speed (`htspeed_cib`) | Hardware Advantage |
 | :--- | :--- | :--- | :--- |
-| **CPU Cycles Burned** | **5,585,851** | **36,061** | **154.9× FEWER CYCLES** |
+| **CPU Cycles Burned** | **5,675,793** | **36,248** | **156.6× FEWER CYCLES** |
 | **Kernel Page Faults** | **327** | **18** | **18.2× FEWER PAGE FAULTS** |
-| **Active Task-Clock (CPU time)** | **2.74 ms** | **0.28 ms** | **9.8× FASTER CPU TIME** |
-| **Elapsed Wall-Clock Time** | **0.002940770 s** | **0.000409907 s** | **7.2× FASTER WALL CLOCK** |
-| **Branches Evaluated** | **1,541,424** | **9,753** | **158.0× FEWER BRANCHES** |
+| **Active Task-Clock (CPU time)** | **2.80 ms** | **0.27 ms** | **10.4× FASTER CPU TIME** |
+| **Elapsed Wall-Clock Time** | **0.003007217 s** | **0.000400321 s** | **7.5× FASTER WALL CLOCK** |
+| **Branches Evaluated** | **1,584,577** | **9,890** | **160.2× FEWER BRANCHES** |
 | **Output Executable Size** | **4842 bytes** | **945 bytes** | **5.1× SMALLER (Pure Static)** |
 
 > **Demand-Paging Efficiency:** HT-Speed uses high-efficiency BSS tracking, completely avoiding bulk memory wipes. The compiler only touches the physical pages it writes, allowing it to complete entire compilations inside **18 page faults**.
@@ -111,14 +111,14 @@ The repository is organized into a clean, modular structure (automatically gener
 │   ├── 04_loop.expected
 │   ├── 04_loop.hts
 ... more ...
-│   ├── 53_global_mutate.expected
-│   ├── 53_global_mutate.hts
-│   ├── 54_zero_loops.expected
-│   ├── 54_zero_loops.hts
 │   ├── 55_nested_calls_as_args.expected
 │   ├── 55_nested_calls_as_args.hts
 │   ├── 56_pass_by_pointer.expected
 │   ├── 56_pass_by_pointer.hts
+│   ├── 57_dot_field_conflict.expected
+│   ├── 57_dot_field_conflict.hts
+│   ├── 58_struct_field_collision.expected
+│   ├── 58_struct_field_collision.hts
 │   ├── inc_helper.inc
 │   └── setup.sh
 ├── test.sh
@@ -126,7 +126,7 @@ The repository is organized into a clean, modular structure (automatically gener
     ├── test.c
     └── test.hts
 
-5 directories, 144 files
+5 directories, 148 files
 ```
 
 ---
@@ -230,10 +230,10 @@ ls -lh htspeed_cib
 
 ## Running the Test Suite
 
-The test suite contains **56 automated test cases** covering arithmetic, recursion, loops, nested breaks, mutual recursion, bitwise logic, heap bubble sorting, and command-line parsing.
+The test suite contains **58 automated test cases** covering arithmetic, recursion, loops, nested breaks, mutual recursion, bitwise logic, heap bubble sorting, and command-line parsing.
 
 ```bash
-# Run all 56 tests
+# Run all 58 tests
 ./test.sh
 
 # Debug a specific test (e.g. test 45) with verbose source, diff, and hexdumps

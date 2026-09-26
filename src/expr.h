@@ -93,14 +93,14 @@ static void parse_primary(void) {
         emit_u8(0x45); emit_u8(0x31); emit_u8(0xC9);
         emit_u8(0xB8); emit_u32(9);
         emit_u8(0x0F); emit_u8(0x05);
-	} else if (cur_tok.kind == TOK_BIT_NOT) {
+    } else if (cur_tok.kind == TOK_BIT_NOT) {
         next_token();
         parse_primary();
-        emit_u8(0x48); emit_u8(0xF7); emit_u8(0xD0); // not rax
+        emit_u8(0x48); emit_u8(0xF7); emit_u8(0xD0);
     } else if (cur_tok.kind == TOK_MINUS) {
         next_token();
         parse_primary();
-        emit_u8(0x48); emit_u8(0xF7); emit_u8(0xD8); // neg rax
+        emit_u8(0x48); emit_u8(0xF7); emit_u8(0xD8);
     } else if (cur_tok.kind == TOK_LBRACKET) {
         next_token();
         parse_expression();
@@ -127,7 +127,9 @@ static void parse_primary(void) {
         m_strncpy(name, cur_tok.str_val, 63);
         next_token();
 
-        if (cur_tok.kind == TOK_DOT) {
+        int is_str_var = find_local_is_str(name) || find_global_is_str(name);
+
+        if (cur_tok.kind == TOK_DOT && !is_str_var) {
             const char *p = src;
             while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
             if (m_isalpha(*p) || *p == '_') {
@@ -203,10 +205,12 @@ static void parse_primary(void) {
                 return;
             }
 
-            m_print("Undeclared identifier\n");
+            m_print("Undeclared identifier at line ");
+            m_print_u64((uint64_t)cur_line);
+            m_print("\n");
             k_exit(1);
         }
-	} else {
+    } else {
         m_print("Syntax Error in expression at line ");
         m_print_u64((uint64_t)cur_line);
         m_print("\n");
