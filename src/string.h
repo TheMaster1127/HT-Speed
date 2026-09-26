@@ -81,4 +81,20 @@ static inline int64_t m_strtoll(const char *p, const char **end) {
     return val * sign;
 }
 
+static inline void m_print_u64(uint64_t val) {
+    char buf[24];
+    int i = 0;
+    if (val == 0) { k_write(1, "0", 1); return; }
+    while (val > 0) {
+        buf[i++] = '0' + (val % 10);
+        val /= 10;
+    }
+    for (int j = 0; j < i / 2; j++) {
+        char tmp = buf[j];
+        buf[j] = buf[i - 1 - j];
+        buf[i - 1 - j] = tmp;
+    }
+    k_write(1, buf, i);
+}
+
 #endif

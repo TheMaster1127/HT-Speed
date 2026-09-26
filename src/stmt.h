@@ -381,8 +381,10 @@ static void parse_statement(void) {
         }
     }
 
-    m_print("Syntax Error in statement\n");
-    k_exit(1);
-}
+    m_print("Syntax Error in statement at line ");
+        m_print_u64((uint64_t)cur_line);
+        m_print("\n");
+        k_exit(1);
+    }
 
 #endif

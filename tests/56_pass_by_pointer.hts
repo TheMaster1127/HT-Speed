@@ -1,0 +1,11 @@
+func void fill_coords(int pt) {
+    [pt + 0] := 111
+    [pt + 8] := 222
+}
+
+main
+int p := alloc(16)
+fill_coords(p)
+print([p + 0])
+print([p + 8])
+exit(0)

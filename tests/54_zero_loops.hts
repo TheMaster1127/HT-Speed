@@ -1,0 +1,13 @@
+main
+int executed := 0
+
+Loop, 0 {
+    executed := 1
+}
+
+while (0) {
+    executed := 2
+}
+
+print(executed)
+exit(0)

@@ -30,10 +30,14 @@ typedef struct {
 static char src_buf[MAX_SRC];
 static const char *src;
 static Token cur_tok;
+static int cur_line;
 
 static void skip_whitespace_and_comments(void) {
     while (*src) {
-        if (*src == ' ' || *src == '\t' || *src == '\r' || *src == '\n') {
+        if (*src == '\n') {
+            cur_line++;
+            src++;
+        } else if (*src == ' ' || *src == '\t' || *src == '\r') {
             src++;
         } else if (*src == '/' && *(src + 1) == '/') {
             src += 2;
@@ -46,7 +50,10 @@ static void skip_whitespace_and_comments(void) {
             while (*src && *src != '\n') src++;
         } else if (*src == '/' && *(src + 1) == '*') {
             src += 2;
-            while (*src && !(*src == '*' && *(src + 1) == '/')) src++;
+            while (*src && !(*src == '*' && *(src + 1) == '/')) {
+                if (*src == '\n') cur_line++;
+                src++;
+            }
             if (*src) src += 2;
         } else {
             break;
@@ -77,6 +84,7 @@ static void next_token(void) {
                 else cur_tok.str_val[len++] = *src;
                 src++;
             } else {
+                if (*src == '\n') cur_line++;
                 cur_tok.str_val[len++] = *src++;
             }
         }
@@ -152,7 +160,9 @@ static void next_token(void) {
         case ']': cur_tok.kind = TOK_RBRACKET; break;
         case ',': cur_tok.kind = TOK_COMMA; break;
         default:
-            m_print("Unknown character in lexer\n");
+            m_print("Error at line ");
+            m_print_u64((uint64_t)cur_line);
+            m_print(": Unknown character\n");
             k_exit(1);
     }
     src++;
@@ -160,7 +170,9 @@ static void next_token(void) {
 
 static void expect(TokenKind kind) {
     if (cur_tok.kind != kind) {
-        m_print("Syntax Error: Unexpected token\n");
+        m_print("Syntax Error at line ");
+        m_print_u64((uint64_t)cur_line);
+        m_print(": Unexpected token\n");
         k_exit(1);
     }
     next_token();

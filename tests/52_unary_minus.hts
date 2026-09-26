@@ -1,0 +1,10 @@
+main
+int a := -1
+int b := -5
+int c := -(10 + 20)
+int d := - -42
+print(a)
+print(b)
+print(c)
+print(d)
+exit(0)

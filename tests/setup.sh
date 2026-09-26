@@ -694,4 +694,84 @@ EOF
 printf 'hello from void func\n42\n' > 51_func_stmt.expected
 
 
+# 52 - Unary minus expressions
+cat > 52_unary_minus.hts << 'EOF'
+main
+int a := -1
+int b := -5
+int c := -(10 + 20)
+int d := - -42
+print(a)
+print(b)
+print(c)
+print(d)
+exit(0)
+EOF
+printf -- '-1\n-5\n-30\n42\n' > 52_unary_minus.expected
+
+# 53 - Global variable mutation from inside a function
+cat > 53_global_mutate.hts << 'EOF'
+int g_hits := 0
+
+func void strike() {
+    g_hits := g_hits + 5
+}
+
+main
+print(g_hits)
+strike()
+strike()
+print(g_hits)
+exit(0)
+EOF
+printf '0\n10\n' > 53_global_mutate.expected
+
+# 54 - Zero-iteration loops
+cat > 54_zero_loops.hts << 'EOF'
+main
+int executed := 0
+
+Loop, 0 {
+    executed := 1
+}
+
+while (0) {
+    executed := 2
+}
+
+print(executed)
+exit(0)
+EOF
+printf '0\n' > 54_zero_loops.expected
+
+# 55 - Nested function call expressions as arguments
+cat > 55_nested_calls_as_args.hts << 'EOF'
+func int sqr(int x) { return x * x }
+func int add(int a, int b) { return a + b }
+
+main
+int res := add(sqr(3) + 1, sqr(4))
+print(res)
+exit(0)
+EOF
+printf '26\n' > 55_nested_calls_as_args.expected
+
+# 56 - Pass-by-pointer mutation on heap
+cat > 56_pass_by_pointer.hts << 'EOF'
+func void fill_coords(int pt) {
+    [pt + 0] := 111
+    [pt + 8] := 222
+}
+
+main
+int p := alloc(16)
+fill_coords(p)
+print([p + 0])
+print([p + 8])
+exit(0)
+EOF
+printf '111\n222\n' > 56_pass_by_pointer.expected
+
+
+
 echo "Created $(ls *.hts | wc -l) test files in $(pwd)"

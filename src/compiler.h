@@ -43,6 +43,7 @@ static void load_source_with_includes(const char *path, char *dest, size_t *dest
     dest[*dest_len] = '\0';
 }
 
+__attribute__((noinline))
 static void run_compiler(void) {
     const char *in_path = 0;
     const char *out_path = "hello";
@@ -81,6 +82,9 @@ static void run_compiler(void) {
     C.needs_getparams = 0;
     C.has_exited = 0;
     C.loop_depth = 0;
+    C.has_exited = 0;
+    C.loop_depth = 0;
+    cur_line = 1;
 
     next_token();
 

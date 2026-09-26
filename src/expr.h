@@ -206,8 +206,10 @@ static void parse_primary(void) {
             m_print("Undeclared identifier\n");
             k_exit(1);
         }
-    } else {
-        m_print("Syntax Error in expression\n");
+	} else {
+        m_print("Syntax Error in expression at line ");
+        m_print_u64((uint64_t)cur_line);
+        m_print("\n");
         k_exit(1);
     }
 }

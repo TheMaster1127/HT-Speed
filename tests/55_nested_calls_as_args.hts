@@ -1,0 +1,7 @@
+func int sqr(int x) { return x * x }
+func int add(int a, int b) { return a + b }
+
+main
+int res := add(sqr(3) + 1, sqr(4))
+print(res)
+exit(0)

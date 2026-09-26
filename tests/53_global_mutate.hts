@@ -1,0 +1,12 @@
+int g_hits := 0
+
+func void strike() {
+    g_hits := g_hits + 5
+}
+
+main
+print(g_hits)
+strike()
+strike()
+print(g_hits)
+exit(0)
