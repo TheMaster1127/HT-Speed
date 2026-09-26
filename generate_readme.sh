@@ -125,6 +125,9 @@ awk -v t_micro="$BENCHMARK_TABLE_MICRO" \
     -v tests="$TEST_COUNT" \
     -v tree="$DIR_TREE" \
     -v faults="$HT_U_FAULTS" \
+    -v cycles_micro="$(fmt_num "$HT_U_CYCLES")" \
+    -v faults_mega="$(fmt_num "$HT_M_FAULTS")" \
+    -v faults_ratio_mega="$FAULTS_M_RATIO" \
     -v hello_sz="$HELLO_SIZE" \
     -v ttt_sz="$TTT_SIZE" '
     /\{\{BENCHMARK_TABLE_MICRO\}\}/ { print t_micro; next }
@@ -134,6 +137,9 @@ awk -v t_micro="$BENCHMARK_TABLE_MICRO" \
         gsub(/\{\{COMPILER_SIZE\}\}/, size)
         gsub(/\{\{TEST_COUNT\}\}/, tests)
         gsub(/\{\{PAGE_FAULTS\}\}/, faults)
+        gsub(/\{\{HT_U_CYCLES\}\}/, cycles_micro)
+        gsub(/\{\{HT_M_FAULTS\}\}/, faults_mega)
+        gsub(/\{\{FAULTS_M_RATIO\}\}/, faults_ratio_mega)
         gsub(/\{\{HELLO_SIZE\}\}/, hello_sz)
         gsub(/\{\{TTT_SIZE\}\}/, ttt_sz)
         print
@@ -144,4 +150,4 @@ rm -f /tmp/ht_micro_bin /tmp/tcc_micro_bin /tmp/perf_ht_micro.txt /tmp/perf_tcc_
 rm -f /tmp/ht_mega_bin /tmp/tcc_mega_bin /tmp/perf_ht_mega.txt /tmp/perf_tcc_mega.txt
 rm -f /tmp/hello_bin /tmp/ttt_bin
 
-echo "[+] README.md generated successfully with both Live Benchmarks!"
+echo "[+] README.md generated successfully with 100% consistent stats!"

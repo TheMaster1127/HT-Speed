@@ -49,7 +49,7 @@ Modern language toolchains suffer from massive abstraction layers:
 HT-Speed flattens the entire compilation pipeline into pure memory operations:
 * **Zero Assembly Text:** Source tokens are translated directly into physical x86-64 machine code bytes in a single streaming pass.
 * **Zero Libc Runtime:** Output binaries communicate directly with the Linux kernel via raw hardware syscalls (`sys_write`, `sys_read`, `sys_mmap`, `sys_munmap`, `sys_exit`).
-* **Sub-Millisecond Speed:** The compiler executes directly on bare-metal silicon in sub-400 microseconds, burns ~33,000 CPU cycles, and completes small compilations inside {{PAGE_FAULTS}} page faults.
+* **Sub-Millisecond Speed:** The compiler executes directly on bare-metal silicon in sub-400 microseconds, burns ~{{HT_U_CYCLES}} CPU cycles on cold starts, and completes small compilations inside {{PAGE_FAULTS}} page faults.
 
 ---
 
@@ -73,7 +73,7 @@ Tests sustained streaming throughput, branch prediction stability, and memory ef
 
 > **Hardware Throughput Analysis:**
 > * **15+ Million Lines/Sec:** HT-Speed compiles 1.2 million lines into a working 25 MB executable in ~80 milliseconds.
-> * **27× Fewer Page Faults:** While TCC's libc allocator burns 14,000+ page faults managing heap buckets, HT-Speed's linear BSS layout only faults 526 pages.
+> * **{{FAULTS_M_RATIO}}× Fewer Page Faults:** While TCC's libc allocator burns thousands of page faults managing heap buckets, HT-Speed's linear BSS layout only faults {{HT_M_FAULTS}} pages.
 > * **0.03% Branch Miss Rate:** Streaming single-pass design keeps the CPU pipeline completely saturated at ~3.7 instructions per cycle (IPC).
 
 ---
@@ -139,12 +139,12 @@ In HT-Speed, binaries are emitted with a single **RWX** segment (`PF_R | PF_W | 
 Earlier versions of the compiler suffered from ~121 kernel page faults per compilation. Profile analysis revealed that the compiler was executing:
 
 ```c
-m_memset(&C, 0, sizeof(C)); // Wiping ~418 KB of static compiler buffers
+m_memset(&C, 0, sizeof(C)); // Wiping static compiler buffers
 ```
 
 Under Linux, static uninitialized memory (`.bss`) is mapped via **Copy-On-Write (COW)** to a system-wide read-only zero page. When you write to that memory, the MMU triggers a page fault (Hardware Trap 14), forcing the kernel to allocate a physical 4 KB RAM page.
 
-Wiping a 418 KB struct triggered **over 100 consecutive kernel page faults** on memory that was never even used by the program being compiled. By deleting the bulk `memset` and only resetting scalar tracking integers (`code_len = 0`, `data_len = 16`, etc.), page faults instantly dropped from **121 to 18**, and CPU cycles dropped from **116,000 to ~33,600** (a 3.4× speedup).
+Wiping multi-megabyte structs triggered consecutive kernel page faults on memory that was never even used by the program being compiled. By deleting the bulk `memset` and only resetting scalar tracking integers (`code_len = 0`, `data_len = 16`, etc.), page faults instantly dropped from **121 to 18**, and CPU cycles dropped from **116,000 to ~33,600** (a 3.4× speedup).
 
 ### 3. Separation of Concerns: `tests/` vs `examples/`
 
@@ -181,7 +181,7 @@ ls -lh htspeed_cib
 # Output: {{COMPILER_SIZE}} htspeed_cib
 ```
 
-> **Note on -Z flag:** Do NOT use the `-Z5` flag. It causes a segmentation fault triggered by GCC's `-O3` optimization tier in the background. Anything else is valid. Always use either `-Z4` for maximum compilation speed of your compiler, or `-Z0` (the default) for the smallest compiler binary size. Even the Linux kernel refuses to compile with `-O3` because it breaks when you push C to the bare metal.
+> **Note on -Z flag:** Do NOT use the `-Z5` flag. GCC's `-O3` tier enables aggressive loop vectorization that emits aligned SSE instructions (`movaps`), which strictly require 16-byte stack alignment. Because `cib` strips standard C runtime boilerplate (`crt1.o`), the bare-metal stack at `_start` does not guarantee 16-byte alignment, causing the CPU to raise Hardware Trap 13 (`#GP` - General Protection Fault) and resulting in a segmentation fault. Always use `-Z4` (`-O2`) for balanced optimization or `-Z0` for minimum binary size.
 
 ---
 

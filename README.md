@@ -49,7 +49,7 @@ Modern language toolchains suffer from massive abstraction layers:
 HT-Speed flattens the entire compilation pipeline into pure memory operations:
 * **Zero Assembly Text:** Source tokens are translated directly into physical x86-64 machine code bytes in a single streaming pass.
 * **Zero Libc Runtime:** Output binaries communicate directly with the Linux kernel via raw hardware syscalls (`sys_write`, `sys_read`, `sys_mmap`, `sys_munmap`, `sys_exit`).
-* **Sub-Millisecond Speed:** The compiler executes directly on bare-metal silicon in sub-400 microseconds, burns ~33,000 CPU cycles, and completes small compilations inside 15 page faults.
+* **Sub-Millisecond Speed:** The compiler executes directly on bare-metal silicon in sub-400 microseconds, burns ~47,100 CPU cycles on cold starts, and completes small compilations inside 14 page faults.
 
 ---
 
@@ -63,11 +63,11 @@ Tests cold process startup, micro-latency, and zero-libc footprint (`test_speed/
 
 | Metric | TinyCC (`tcc`) | HT-Speed (`htspeed_cib`) | Hardware Advantage |
 | :--- | :--- | :--- | :--- |
-| **CPU Cycles Burned** | **5,687,162** | **47,583** | **119.5× FEWER CYCLES** |
-| **Kernel Page Faults** | **327** | **15** | **21.8× FEWER PAGE FAULTS** |
-| **Active Task-Clock (CPU time)** | **2.82 ms** | **0.99 ms** | **2.8× FASTER CPU TIME** |
-| **Elapsed Wall-Clock Time** | **0.003033813 s** | **0.001195823 s** | **2.5× FASTER WALL CLOCK** |
-| **Branches Evaluated** | **1,538,865** | **10,562** | **145.7× FEWER BRANCHES** |
+| **CPU Cycles Burned** | **5,808,904** | **47,100** | **123.3× FEWER CYCLES** |
+| **Kernel Page Faults** | **327** | **14** | **23.4× FEWER PAGE FAULTS** |
+| **Active Task-Clock (CPU time)** | **2.78 ms** | **1.00 ms** | **2.8× FASTER CPU TIME** |
+| **Elapsed Wall-Clock Time** | **0.003007562 s** | **0.001215630 s** | **2.5× FASTER WALL CLOCK** |
+| **Branches Evaluated** | **1,615,648** | **10,577** | **152.8× FEWER BRANCHES** |
 | **Output Executable Size** | **4842 bytes** | **945 bytes** | **5.1× SMALLER (Pure Static)** |
 
 ---
@@ -78,16 +78,16 @@ Tests sustained streaming throughput, branch prediction stability, and memory ef
 
 | Metric | TinyCC (`tcc`) | HT-Speed (`htspeed_cib`) | Hardware Advantage |
 | :--- | :--- | :--- | :--- |
-| **Elapsed Wall-Clock Time** | **0.248220880 s** | **0.081762744 s** | **3.0× FASTER WALL CLOCK** |
-| **Active Task-Clock (CPU time)** | **246.82 ms** | **80.57 ms** | **3.1× FASTER CPU TIME** |
-| **CPU Cycles Burned** | **990,426,451** | **315,781,380** | **3.1× FEWER CYCLES** |
-| **Kernel Page Faults** | **14,395** | **526** | **27.4× FEWER PAGE FAULTS** |
-| **Branches Evaluated** | **645,647,586** | **335,767,728** | **1.9× FEWER BRANCHES** |
+| **Elapsed Wall-Clock Time** | **0.255890830 s** | **0.084457316 s** | **3.0× FASTER WALL CLOCK** |
+| **Active Task-Clock (CPU time)** | **251.66 ms** | **82.53 ms** | **3.0× FASTER CPU TIME** |
+| **CPU Cycles Burned** | **1,000,984,927** | **317,686,538** | **3.2× FEWER CYCLES** |
+| **Kernel Page Faults** | **14,435** | **542** | **26.6× FEWER PAGE FAULTS** |
+| **Branches Evaluated** | **643,705,607** | **337,876,744** | **1.9× FEWER BRANCHES** |
 | **Output Executable Size** | **16M (16203730 B)** | **25M (25400312 B)** | **Pure Static x86-64 ELF** |
 
 > **Hardware Throughput Analysis:**
 > * **15+ Million Lines/Sec:** HT-Speed compiles 1.2 million lines into a working 25 MB executable in ~80 milliseconds.
-> * **27× Fewer Page Faults:** While TCC's libc allocator burns 14,000+ page faults managing heap buckets, HT-Speed's linear BSS layout only faults 526 pages.
+> * **26.6× Fewer Page Faults:** While TCC's libc allocator burns thousands of page faults managing heap buckets, HT-Speed's linear BSS layout only faults 542 pages.
 > * **0.03% Branch Miss Rate:** Streaming single-pass design keeps the CPU pipeline completely saturated at ~3.7 instructions per cycle (IPC).
 
 ---
@@ -135,8 +135,6 @@ The repository is organized into a clean, modular structure (automatically gener
 │   ├── 04_loop.expected
 │   ├── 04_loop.hts
 ... more ...
-│   ├── 55_nested_calls_as_args.expected
-│   ├── 55_nested_calls_as_args.hts
 │   ├── 56_pass_by_pointer.expected
 │   ├── 56_pass_by_pointer.hts
 │   ├── 57_dot_field_conflict.expected
@@ -206,12 +204,12 @@ In HT-Speed, binaries are emitted with a single **RWX** segment (`PF_R | PF_W | 
 Earlier versions of the compiler suffered from ~121 kernel page faults per compilation. Profile analysis revealed that the compiler was executing:
 
 ```c
-m_memset(&C, 0, sizeof(C)); // Wiping ~418 KB of static compiler buffers
+m_memset(&C, 0, sizeof(C)); // Wiping static compiler buffers
 ```
 
 Under Linux, static uninitialized memory (`.bss`) is mapped via **Copy-On-Write (COW)** to a system-wide read-only zero page. When you write to that memory, the MMU triggers a page fault (Hardware Trap 14), forcing the kernel to allocate a physical 4 KB RAM page.
 
-Wiping a 418 KB struct triggered **over 100 consecutive kernel page faults** on memory that was never even used by the program being compiled. By deleting the bulk `memset` and only resetting scalar tracking integers (`code_len = 0`, `data_len = 16`, etc.), page faults instantly dropped from **121 to 18**, and CPU cycles dropped from **116,000 to ~33,600** (a 3.4× speedup).
+Wiping multi-megabyte structs triggered consecutive kernel page faults on memory that was never even used by the program being compiled. By deleting the bulk `memset` and only resetting scalar tracking integers (`code_len = 0`, `data_len = 16`, etc.), page faults instantly dropped from **121 to 18**, and CPU cycles dropped from **116,000 to ~33,600** (a 3.4× speedup).
 
 ### 3. Separation of Concerns: `tests/` vs `examples/`
 
@@ -248,7 +246,7 @@ ls -lh htspeed_cib
 # Output: 24K htspeed_cib
 ```
 
-> **Note on -Z flag:** Do NOT use the `-Z5` flag. It causes a segmentation fault triggered by GCC's `-O3` optimization tier in the background. Anything else is valid. Always use either `-Z4` for maximum compilation speed of your compiler, or `-Z0` (the default) for the smallest compiler binary size. Even the Linux kernel refuses to compile with `-O3` because it breaks when you push C to the bare metal.
+> **Note on -Z flag:** Do NOT use the `-Z5` flag. GCC's `-O3` tier enables aggressive loop vectorization that emits aligned SSE instructions (`movaps`), which strictly require 16-byte stack alignment. Because `cib` strips standard C runtime boilerplate (`crt1.o`), the bare-metal stack at `_start` does not guarantee 16-byte alignment, causing the CPU to raise Hardware Trap 13 (`#GP` - General Protection Fault) and resulting in a segmentation fault. Always use `-Z4` (`-O2`) for balanced optimization or `-Z0` for minimum binary size.
 
 ---
 
