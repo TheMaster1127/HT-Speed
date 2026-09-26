@@ -14,6 +14,11 @@ Built by [TheMaster1127](https://github.com/TheMaster1127) using [cib (C-Is-Bloa
 - [Live Hardware Silicon Benchmarks (vs. TinyCC)](#live-hardware-silicon-benchmarks-vs-tinycc)
 - [Directory & Project Layout](#directory--project-layout)
 - [Architecture & The Unity Build Engine](#architecture--the-unity-build-engine)
+- [Design Decisions & Hardware Philosophy](#design-decisions--hardware-philosophy)
+  - [1. Why Single-Segment RWX (The 120-Byte Rule)](#1-why-single-segment-rwx-the-120-byte-rule)
+  - [2. The 18 Page-Fault Breakthrough (Demand Paging Awareness)](#2-the-18-page-fault-breakthrough-demand-paging-awareness)
+  - [3. Separation of Concerns: `tests/` vs `examples/`](#3-separation-of-concerns-tests-vs-examples)
+  - [4. The Live Automated Benchmark & README Pipeline](#4-the-live-automated-benchmark--readme-pipeline)
 - [Building HT-Speed](#building-ht-speed)
 - [Running the Test Suite](#running-the-test-suite)
 - [Language Overview & Documentation](#language-overview--documentation)
@@ -97,6 +102,49 @@ HT-Speed uses a **Unity Build** architecture. Rather than compiling independent 
 1. **Contiguous Cache Packing:** Hot functions (`emit_u8`, `next_token`) are inlined by GCC `-O2`, packing execution instructions into the same L1 cache lines.
 2. **Dead-Code Elimination:** If a program does not print dynamic signed numbers, the 111-byte `itoa` routine is completely omitted from the binary. If `exit()` is called explicitly, the fallback exit sequence is suppressed.
 3. **Zero Intermediate Disk I/O:** The compiler does not create intermediate `.s` or `.o` files. Machine code is emitted directly into RAM buffers and flushed to disk in a single write operation.
+
+---
+
+## Design Decisions & Hardware Philosophy
+
+### 1. Why Single-Segment RWX (The 120-Byte Rule)
+
+Modern compilers split binaries into multiple segments: `RX` (Read + Execute) for machine code and `RW` (Read + Write) for data to satisfy the security principle of **W^X (Write XOR Execute)**.
+
+In HT-Speed, binaries are emitted with a single **RWX** segment (`PF_R | PF_W | PF_X`). This was a conscious architectural trade-off:
+
+* **The 120-Byte Record:** By using a single program header (`Elf64_Phdr`), the entire ELF header footprint is exactly **120 bytes** ($64\text{B Ehdr} + 56\text{B Phdr}$).
+* **Zero Page-Padding Bloat:** The Linux kernel ELF loader requires separate memory segments to be page-aligned in virtual memory ($0x1000 = 4,096\text{ bytes}$). Separating code from data into `RX` and `RW` segments forces a minimum file padding of 4 KB. 
+* By using a unified RWX layout, code and data sit contiguously in the same memory page. A complete, working executable can be as small as **198 bytes** on disk without padding penalties.
+
+### 2. The 18 Page-Fault Breakthrough (Demand Paging Awareness)
+
+Earlier versions of the compiler suffered from ~121 kernel page faults per compilation. Profile analysis revealed that the compiler was executing:
+
+```c
+m_memset(&C, 0, sizeof(C)); // Wiping ~418 KB of static compiler buffers
+```
+
+Under Linux, static uninitialized memory (`.bss`) is mapped via **Copy-On-Write (COW)** to a system-wide read-only zero page. When you write to that memory, the MMU triggers a page fault (Hardware Trap 14), forcing the kernel to allocate a physical 4 KB RAM page.
+
+Wiping a 418 KB struct triggered **over 100 consecutive kernel page faults** on memory that was never even used by the program being compiled. By deleting the bulk `memset` and only resetting scalar tracking integers (`code_len = 0`, `data_len = 16`, etc.), page faults instantly dropped from **121 to 18**, and CPU cycles dropped from **116,000 to ~33,600** (a 3.4× speedup).
+
+### 3. Separation of Concerns: `tests/` vs `examples/`
+
+To prevent repository rot and maintain strict compiler verification:
+
+* **`tests/` (Automated Regression Suite):** Hermetic, deterministic test files generated programmatically by `tests/setup.sh`. Every test has an accompanying `.expected` output, an optional `.args` file, and an exit-code contract. Run via `./test.sh` to stress every instruction, boundary condition, and parser edge case.
+* **`examples/` (Real-World Programs):** Clean, human-readable showcase programs (`hello.hts`, `bubble.hts`, and full terminal games like `ttt.hts`) designed for developers to read, inspect, and run directly.
+
+### 4. The Live Automated Benchmark & README Pipeline
+
+Most compiler documentation features stale or hallucinated benchmark numbers. HT-Speed eliminates documentation drift with `generate_readme.sh`:
+
+1. It compiles the current engine and runs `perf stat -r 100` on physical silicon against TinyCC.
+2. It extracts live CPU cycles, page faults, task-clock execution time, and branch counts directly from hardware performance counters.
+3. It compiles the example binaries to pull live on-disk byte counts.
+4. It reads `.gitignore` and generates an accurate directory tree.
+5. It injects all real physical metrics into `README.template.md` to produce the final `README.md`.
 
 ---
 
