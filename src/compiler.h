@@ -10,8 +10,6 @@
 #include "runtimes.h"
 #include "parser.h"
 
-static char inc_read_buf[65536];
-
 static void load_source_with_includes(const char *path, char *dest, size_t *dest_len) {
     int fd = k_open(path, 0, 0);
     if (fd < 0) {
@@ -19,12 +17,13 @@ static void load_source_with_includes(const char *path, char *dest, size_t *dest
         k_exit(1);
     }
     
+    char buf[4096];
     while (1) {
-        int64_t n = k_read(fd, inc_read_buf, sizeof(inc_read_buf) - 1);
+        int64_t n = k_read(fd, buf, sizeof(buf) - 1);
         if (n <= 0) break;
-        inc_read_buf[n] = '\0';
+        buf[n] = '\0';
 
-        const char *p = inc_read_buf;
+        const char *p = buf;
         while (*p) {
             if (*p == 'i' && m_strncmp(p, "include", 7) == 0 && (p[7] == ' ' || p[7] == '\t')) {
                 p += 7;
