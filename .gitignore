@@ -11,6 +11,8 @@ mega_app
 v4_app
 test
 ttt
+crazy_test*
+*_tcc
 
 examples/htspeed_cib
 examples/htspeed
@@ -27,3 +29,5 @@ examples/test
 examples/ttt
 
 test_speed/test
+test_speed/crazy_test*
+test_speed/*_tcc

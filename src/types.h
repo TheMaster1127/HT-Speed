@@ -9,15 +9,16 @@ typedef unsigned long long uint64_t;
 typedef long long          int64_t;
 typedef unsigned long      size_t;
 
-#define MAX_SRC     262144
-#define MAX_CODE    131072
-#define MAX_DATA    65536
-#define MAX_LOCALS  256
-#define MAX_GLOBALS 256
-#define MAX_FUNCS   128
-#define MAX_STRUCTS 64
-#define MAX_FIELDS  32
-#define MAX_FIXUPS  512
+// Heavy-Duty 64MB Bounds (Zero physical RAM cost on Linux BSS until touched!)
+#define MAX_SRC     67108864   // 64 MB source code
+#define MAX_CODE    67108864   // 64 MB machine code (fits 250,000+ functions)
+#define MAX_DATA    33554432   // 32 MB data pool
+#define MAX_LOCALS  1024
+#define MAX_GLOBALS 16384
+#define MAX_FUNCS   131072     // 131,072 functions
+#define MAX_STRUCTS 1024
+#define MAX_FIELDS  64
+#define MAX_FIXUPS  131072
 #define MAX_LOOP_DEPTH 16
 #define MAX_LOOP_BREAKS 64
 

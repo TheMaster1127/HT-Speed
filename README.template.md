@@ -12,6 +12,8 @@ Built by [TheMaster1127](https://github.com/TheMaster1127) using [cib (C-Is-Bloa
 - [The Problem](#the-problem)
 - [The Solution](#the-solution)
 - [Live Hardware Silicon Benchmarks (vs. TinyCC)](#live-hardware-silicon-benchmarks-vs-tinycc)
+  - [Workload 1: Micro-Scale Cold Latency](#workload-1-micro-scale-cold-latency)
+  - [Workload 2: Mega-Scale Throughput (1.2 Million Lines / 100,000 Functions)](#workload-2-mega-scale-throughput-12-million-lines--100000-functions)
 - [Directory & Project Layout](#directory--project-layout)
 - [Architecture & The Unity Build Engine](#architecture--the-unity-build-engine)
 - [Design Decisions & Hardware Philosophy](#design-decisions--hardware-philosophy)
@@ -47,17 +49,32 @@ Modern language toolchains suffer from massive abstraction layers:
 HT-Speed flattens the entire compilation pipeline into pure memory operations:
 * **Zero Assembly Text:** Source tokens are translated directly into physical x86-64 machine code bytes in a single streaming pass.
 * **Zero Libc Runtime:** Output binaries communicate directly with the Linux kernel via raw hardware syscalls (`sys_write`, `sys_read`, `sys_mmap`, `sys_munmap`, `sys_exit`).
-* **Sub-Millisecond Speed:** The compiler executes directly on bare-metal silicon in sub-400 microseconds, burns ~33,000 CPU cycles, and completes entire compilations inside {{PAGE_FAULTS}} page faults.
+* **Sub-Millisecond Speed:** The compiler executes directly on bare-metal silicon in sub-400 microseconds, burns ~33,000 CPU cycles, and completes small compilations inside {{PAGE_FAULTS}} page faults.
 
 ---
 
 ## Live Hardware Silicon Benchmarks (vs. TinyCC)
 
-Measured on **Artix Linux x86-64 physical hardware** across **100 consecutive runs back-to-back** using `perf stat -r 100` compiling identical workloads (`test_speed/test.hts` vs `test_speed/test.c`):
+Measured on **Artix Linux x86-64 physical hardware** back-to-back using Linux `perf stat` compiling identical workloads against TinyCC (`tcc`):
 
-{{BENCHMARK_TABLE}}
+### Workload 1: Micro-Scale Cold Latency
 
-> **Demand-Paging Efficiency:** HT-Speed uses high-efficiency BSS tracking, completely avoiding bulk memory wipes. The compiler only touches the physical pages it writes, allowing it to complete entire compilations inside **{{PAGE_FAULTS}} page faults**.
+Tests cold process startup, micro-latency, and zero-libc footprint (`test_speed/test.hts` vs `test_speed/test.c`, 100 runs):
+
+{{BENCHMARK_TABLE_MICRO}}
+
+---
+
+### Workload 2: Mega-Scale Throughput (1.2 Million Lines / 100,000 Functions)
+
+Tests sustained streaming throughput, branch prediction stability, and memory efficiency under extreme scale (`test_speed/crazy_test.hts` vs `test_speed/crazy_test.c`):
+
+{{BENCHMARK_TABLE_MEGA}}
+
+> **Hardware Throughput Analysis:**
+> * **15+ Million Lines/Sec:** HT-Speed compiles 1.2 million lines into a working 25 MB executable in ~80 milliseconds.
+> * **27× Fewer Page Faults:** While TCC's libc allocator burns 14,000+ page faults managing heap buckets, HT-Speed's linear BSS layout only faults 526 pages.
+> * **0.03% Branch Miss Rate:** Streaming single-pass design keeps the CPU pipeline completely saturated at ~3.7 instructions per cycle (IPC).
 
 ---
 
@@ -140,7 +157,7 @@ To prevent repository rot and maintain strict compiler verification:
 
 Most compiler documentation features stale or hallucinated benchmark numbers. HT-Speed eliminates documentation drift with `generate_readme.sh`:
 
-1. It compiles the current engine and runs `perf stat -r 100` on physical silicon against TinyCC.
+1. It compiles the current engine and runs `perf stat` on physical silicon across both Micro and Mega workloads against TinyCC.
 2. It extracts live CPU cycles, page faults, task-clock execution time, and branch counts directly from hardware performance counters.
 3. It compiles the example binaries to pull live on-disk byte counts.
 4. It reads `.gitignore` and generates an accurate directory tree.

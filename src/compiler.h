@@ -10,36 +10,45 @@
 #include "runtimes.h"
 #include "parser.h"
 
+static char inc_read_buf[65536];
+
 static void load_source_with_includes(const char *path, char *dest, size_t *dest_len) {
     int fd = k_open(path, 0, 0);
     if (fd < 0) {
         m_print("Error: Could not open file\n");
         k_exit(1);
     }
-    char buf[MAX_SRC / 2];
-    int64_t n = k_read(fd, buf, sizeof(buf) - 1);
-    k_close(fd);
-    if (n < 0) { m_print("Error: Could not read file\n"); k_exit(1); }
-    buf[n] = '\0';
+    
+    while (1) {
+        int64_t n = k_read(fd, inc_read_buf, sizeof(inc_read_buf) - 1);
+        if (n <= 0) break;
+        inc_read_buf[n] = '\0';
 
-    const char *p = buf;
-    while (*p) {
-        if (*p == 'i' && m_strncmp(p, "include", 7) == 0 && (p[7] == ' ' || p[7] == '\t')) {
-            p += 7;
-            while (*p == ' ' || *p == '\t') p++;
-            if (*p == '"') {
-                p++;
-                char inc_path[128];
-                size_t l = 0;
-                while (*p && *p != '"' && l < 127) inc_path[l++] = *p++;
-                inc_path[l] = '\0';
-                if (*p == '"') p++;
-                load_source_with_includes(inc_path, dest, dest_len);
-                continue;
+        const char *p = inc_read_buf;
+        while (*p) {
+            if (*p == 'i' && m_strncmp(p, "include", 7) == 0 && (p[7] == ' ' || p[7] == '\t')) {
+                p += 7;
+                while (*p == ' ' || *p == '\t') p++;
+                if (*p == '"') {
+                    p++;
+                    char inc_path[128];
+                    size_t l = 0;
+                    while (*p && *p != '"' && l < 127) inc_path[l++] = *p++;
+                    inc_path[l] = '\0';
+                    if (*p == '"') p++;
+                    load_source_with_includes(inc_path, dest, dest_len);
+                    continue;
+                }
+            }
+            if (*dest_len < MAX_SRC - 1) {
+                dest[(*dest_len)++] = *p++;
+            } else {
+                m_print("Error: Source file exceeds MAX_SRC\n");
+                k_exit(1);
             }
         }
-        dest[(*dest_len)++] = *p++;
     }
+    k_close(fd);
     dest[*dest_len] = '\0';
 }
 
@@ -153,11 +162,12 @@ static void run_compiler(void) {
             expect(TOK_IDENT);
             expect(TOK_LPAREN);
 
-            Function *fn = find_func(fn_name);
-            if (!fn) {
-                fn = &C.funcs[C.func_count++];
-                m_strncpy(fn->name, fn_name, 63);
+			if (C.func_count >= MAX_FUNCS) {
+                m_print("Error: Exceeded MAX_FUNCS\n");
+                k_exit(1);
             }
+            Function *fn = &C.funcs[C.func_count++];
+            m_strncpy(fn->name, fn_name, 63);
             fn->code_offset = C.code_len;
             fn->is_defined = 1;
 
