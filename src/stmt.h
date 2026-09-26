@@ -16,8 +16,12 @@ static void parse_statement(void) {
         m_strncpy(var_name, cur_tok.str_val, 63);
         expect(TOK_IDENT);
         expect(TOK_ASSIGN);
+
+        C.last_alloc_struct_idx = -1;
         parse_expression();
-        int offset = add_local(var_name, is_str);
+        int s_idx = C.last_alloc_struct_idx;
+
+        int offset = add_local(var_name, is_str, s_idx);
         emit_u8(0x48); emit_u8(0x89); emit_u8(0x85);
         emit_u32((uint32_t)(-offset));
         return;
@@ -238,8 +242,8 @@ static void parse_statement(void) {
         l->break_count = 0;
         l->continue_count = 0;
 
-        int limit_off = add_local("__limit", 0);
-        int index_off = add_local("__index", 0);
+        int limit_off = add_local("__limit", 0, -1);
+        int index_off = add_local("__index", 0, -1);
         l->index_offset = index_off;
         l->limit_offset = limit_off;
 
@@ -334,7 +338,14 @@ static void parse_statement(void) {
             expect(TOK_IDENT);
             expect(TOK_ASSIGN);
 
-            int f_off = find_field_offset(field_name);
+            int s_idx = find_local_struct_idx(name);
+            int f_off = -1;
+            if (s_idx >= 0) {
+                f_off = find_field_offset_in_struct(s_idx, field_name);
+            } else {
+                f_off = find_field_offset(field_name);
+            }
+
             if (f_off < 0) {
                 m_print("Unknown struct field: ");
                 m_print(field_name);
@@ -357,10 +368,14 @@ static void parse_statement(void) {
         // 3. Variable Assignment: x := 10
         if (cur_tok.kind == TOK_ASSIGN) {
             next_token();
+            C.last_alloc_struct_idx = -1;
             parse_expression();
 
             int offset = find_local(name);
             if (offset >= 0) {
+                if (C.last_alloc_struct_idx >= 0) {
+                    set_local_struct_idx(name, C.last_alloc_struct_idx);
+                }
                 emit_u8(0x48); emit_u8(0x89); emit_u8(0x85);
                 emit_u32((uint32_t)(-offset));
                 return;
@@ -376,15 +391,17 @@ static void parse_statement(void) {
                 return;
             }
 
-            m_print("Undeclared variable\n");
+            m_print("Undeclared variable at line ");
+            m_print_u64((uint64_t)cur_line);
+            m_print("\n");
             k_exit(1);
         }
     }
 
     m_print("Syntax Error in statement at line ");
-        m_print_u64((uint64_t)cur_line);
-        m_print("\n");
-        k_exit(1);
-    }
+    m_print_u64((uint64_t)cur_line);
+    m_print("\n");
+    k_exit(1);
+}
 
 #endif

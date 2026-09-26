@@ -17,14 +17,19 @@ static void load_source_with_includes(const char *path, char *dest, size_t *dest
         k_exit(1);
     }
     
-    char buf[4096];
+    char buf[8192];
+    size_t leftover = 0;
     while (1) {
-        int64_t n = k_read(fd, buf, sizeof(buf) - 1);
-        if (n <= 0) break;
-        buf[n] = '\0';
+        int64_t n = k_read(fd, buf + leftover, sizeof(buf) - 1 - leftover);
+        if (n <= 0 && leftover == 0) break;
+        size_t total = leftover + (n > 0 ? (size_t)n : 0);
+        buf[total] = '\0';
 
         const char *p = buf;
         while (*p) {
+            if (n > 0 && (size_t)(buf + total - p) < 256) {
+                break;
+            }
             if (*p == 'i' && m_strncmp(p, "include", 7) == 0 && (p[7] == ' ' || p[7] == '\t')) {
                 p += 7;
                 while (*p == ' ' || *p == '\t') p++;
@@ -46,6 +51,11 @@ static void load_source_with_includes(const char *path, char *dest, size_t *dest
                 k_exit(1);
             }
         }
+        leftover = (size_t)(buf + total - p);
+        if (leftover > 0 && p != buf) {
+            m_memcpy(buf, p, leftover);
+        }
+        if (n <= 0) break;
     }
     k_close(fd);
     dest[*dest_len] = '\0';
@@ -68,7 +78,7 @@ static void run_compiler(void) {
     load_source_with_includes(in_path, src_buf, &total_src_len);
     src = src_buf;
 
-    // Reset state counters only (DO NOT memset entire 200KB BSS)
+    // Reset state counters only (DO NOT memset entire BSS)
     C.code_len = 0;
     C.data_len = 16;
     C.local_count = 0;
@@ -90,8 +100,7 @@ static void run_compiler(void) {
     C.needs_getparams = 0;
     C.has_exited = 0;
     C.loop_depth = 0;
-    C.has_exited = 0;
-    C.loop_depth = 0;
+    C.last_alloc_struct_idx = -1;
     cur_line = 1;
 
     next_token();
@@ -161,7 +170,7 @@ static void run_compiler(void) {
             expect(TOK_IDENT);
             expect(TOK_LPAREN);
 
-			if (C.func_count >= MAX_FUNCS) {
+            if (C.func_count >= MAX_FUNCS) {
                 m_print("Error: Exceeded MAX_FUNCS\n");
                 k_exit(1);
             }
@@ -185,7 +194,7 @@ static void run_compiler(void) {
                 char p_name[64];
                 m_strncpy(p_name, cur_tok.str_val, 63);
                 expect(TOK_IDENT);
-                int off = add_local(p_name, p_is_str);
+                int off = add_local(p_name, p_is_str, -1);
 
                 switch (param_idx) {
                     case 0: emit_u8(0x48); emit_u8(0x89); emit_u8(0xBD); break;
@@ -234,7 +243,9 @@ static void run_compiler(void) {
             break;
         }
 
-        m_print("Syntax Error: Top-level declaration expected\n");
+        m_print("Syntax Error: Top-level declaration expected at line ");
+        m_print_u64((uint64_t)cur_line);
+        m_print("\n");
         k_exit(1);
     }
 

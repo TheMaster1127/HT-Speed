@@ -79,11 +79,13 @@ static void parse_primary(void) {
         m_strncpy(s_name, cur_tok.str_val, 63);
         expect(TOK_IDENT);
 
-        StructDef *st = find_struct(s_name);
-        if (!st) {
+        int s_idx = find_struct_index(s_name);
+        if (s_idx < 0) {
             m_print("Error: Unknown struct type in 'new'\n");
             k_exit(1);
         }
+        StructDef *st = &C.structs[s_idx];
+        C.last_alloc_struct_idx = s_idx;
 
         emit_u8(0x48); emit_u8(0xC7); emit_u8(0xC6); emit_u32((uint32_t)st->total_size);
         emit_u8(0x31); emit_u8(0xFF);
@@ -138,7 +140,14 @@ static void parse_primary(void) {
                 while ((m_isalnum(*p) || *p == '_') && pl < 63) peek_field[pl++] = *p++;
                 peek_field[pl] = '\0';
 
-                int f_off = find_field_offset(peek_field);
+                int s_idx = find_local_struct_idx(name);
+                int f_off = -1;
+                if (s_idx >= 0) {
+                    f_off = find_field_offset_in_struct(s_idx, peek_field);
+                } else {
+                    f_off = find_field_offset(peek_field);
+                }
+
                 if (f_off >= 0) {
                     next_token();
                     next_token();

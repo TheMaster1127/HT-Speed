@@ -49,7 +49,7 @@ Modern language toolchains suffer from massive abstraction layers:
 HT-Speed flattens the entire compilation pipeline into pure memory operations:
 * **Zero Assembly Text:** Source tokens are translated directly into physical x86-64 machine code bytes in a single streaming pass.
 * **Zero Libc Runtime:** Output binaries communicate directly with the Linux kernel via raw hardware syscalls (`sys_write`, `sys_read`, `sys_mmap`, `sys_munmap`, `sys_exit`).
-* **Sub-Millisecond Speed:** The compiler executes directly on bare-metal silicon in sub-400 microseconds, burns ~47,100 CPU cycles on cold starts, and completes small compilations inside 14 page faults.
+* **Sub-Millisecond Speed:** The compiler executes directly on bare-metal silicon in sub-400 microseconds, burns ~43,562 CPU cycles on cold starts, and completes small compilations inside 14 page faults.
 
 ---
 
@@ -63,11 +63,11 @@ Tests cold process startup, micro-latency, and zero-libc footprint (`test_speed/
 
 | Metric | TinyCC (`tcc`) | HT-Speed (`htspeed_cib`) | Hardware Advantage |
 | :--- | :--- | :--- | :--- |
-| **CPU Cycles Burned** | **5,808,904** | **47,100** | **123.3× FEWER CYCLES** |
+| **CPU Cycles Burned** | **5,475,801** | **43,562** | **125.7× FEWER CYCLES** |
 | **Kernel Page Faults** | **327** | **14** | **23.4× FEWER PAGE FAULTS** |
-| **Active Task-Clock (CPU time)** | **2.78 ms** | **1.00 ms** | **2.8× FASTER CPU TIME** |
-| **Elapsed Wall-Clock Time** | **0.003007562 s** | **0.001215630 s** | **2.5× FASTER WALL CLOCK** |
-| **Branches Evaluated** | **1,615,648** | **10,577** | **152.8× FEWER BRANCHES** |
+| **Active Task-Clock (CPU time)** | **2.74 ms** | **0.94 ms** | **2.9× FASTER CPU TIME** |
+| **Elapsed Wall-Clock Time** | **0.002943845 s** | **0.001144271 s** | **2.6× FASTER WALL CLOCK** |
+| **Branches Evaluated** | **1,662,261** | **12,077** | **137.6× FEWER BRANCHES** |
 | **Output Executable Size** | **4842 bytes** | **945 bytes** | **5.1× SMALLER (Pure Static)** |
 
 ---
@@ -78,16 +78,16 @@ Tests sustained streaming throughput, branch prediction stability, and memory ef
 
 | Metric | TinyCC (`tcc`) | HT-Speed (`htspeed_cib`) | Hardware Advantage |
 | :--- | :--- | :--- | :--- |
-| **Elapsed Wall-Clock Time** | **0.255890830 s** | **0.084457316 s** | **3.0× FASTER WALL CLOCK** |
-| **Active Task-Clock (CPU time)** | **251.66 ms** | **82.53 ms** | **3.0× FASTER CPU TIME** |
-| **CPU Cycles Burned** | **1,000,984,927** | **317,686,538** | **3.2× FEWER CYCLES** |
-| **Kernel Page Faults** | **14,435** | **542** | **26.6× FEWER PAGE FAULTS** |
-| **Branches Evaluated** | **643,705,607** | **337,876,744** | **1.9× FEWER BRANCHES** |
+| **Elapsed Wall-Clock Time** | **0.241938624 s** | **0.080267682 s** | **3.0× FASTER WALL CLOCK** |
+| **Active Task-Clock (CPU time)** | **239.82 ms** | **79.05 ms** | **3.0× FASTER CPU TIME** |
+| **CPU Cycles Burned** | **959,761,224** | **310,139,005** | **3.1× FEWER CYCLES** |
+| **Kernel Page Faults** | **14,446** | **542** | **26.7× FEWER PAGE FAULTS** |
+| **Branches Evaluated** | **645,057,589** | **375,671,021** | **1.7× FEWER BRANCHES** |
 | **Output Executable Size** | **16M (16203730 B)** | **25M (25400312 B)** | **Pure Static x86-64 ELF** |
 
 > **Hardware Throughput Analysis:**
 > * **15+ Million Lines/Sec:** HT-Speed compiles 1.2 million lines into a working 25 MB executable in ~80 milliseconds.
-> * **26.6× Fewer Page Faults:** While TCC's libc allocator burns thousands of page faults managing heap buckets, HT-Speed's linear BSS layout only faults 542 pages.
+> * **26.7× Fewer Page Faults:** While TCC's libc allocator burns thousands of page faults managing heap buckets, HT-Speed's linear BSS layout only faults 542 pages.
 > * **0.03% Branch Miss Rate:** Streaming single-pass design keeps the CPU pipeline completely saturated at ~3.7 instructions per cycle (IPC).
 
 ---
@@ -134,6 +134,8 @@ The repository is organized into a clean, modular structure (automatically gener
 │   ├── 03_fib.hts
 │   ├── 04_loop.expected
 │   ├── 04_loop.hts
+│   ├── 05_while.expected
+│   ├── 05_while.hts
 ... more ...
 │   ├── 56_pass_by_pointer.expected
 │   ├── 56_pass_by_pointer.hts
@@ -232,7 +234,7 @@ Most compiler documentation features stale or hallucinated benchmark numbers. HT
 
 ## Building HT-Speed
 
-Compiling HT-Speed requires [cib](https://github.com/TheMaster1127/C-is-bloated), producing a **24K static compiler binary**:
+Compiling HT-Speed requires [cib](https://github.com/TheMaster1127/C-is-bloated), producing a **25K static compiler binary**:
 
 ```bash
 # Compile HT-Speed with balanced bare-metal optimization (-Z4)
@@ -243,7 +245,7 @@ file htspeed_cib
 # Output: ELF 64-bit LSB executable, x86-64, statically linked, no section header
 
 ls -lh htspeed_cib
-# Output: 24K htspeed_cib
+# Output: 25K htspeed_cib
 ```
 
 > **Note on -Z flag:** Do NOT use the `-Z5` flag. GCC's `-O3` tier enables aggressive loop vectorization that emits aligned SSE instructions (`movaps`), which strictly require 16-byte stack alignment. Because `cib` strips standard C runtime boilerplate (`crt1.o`), the bare-metal stack at `_start` does not guarantee 16-byte alignment, causing the CPU to raise Hardware Trap 13 (`#GP` - General Protection Fault) and resulting in a segmentation fault. Always use `-Z4` (`-O2`) for balanced optimization or `-Z0` for minimum binary size.

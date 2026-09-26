@@ -8,12 +8,14 @@ typedef struct {
     char name[64];
     int stack_offset;
     int is_str;
+    int struct_idx;
 } LocalVar;
 
 typedef struct {
     char name[64];
     size_t data_offset;
     int is_str;
+    int struct_idx;
 } GlobalVar;
 
 typedef struct {
@@ -106,15 +108,18 @@ typedef struct {
 
     LoopContext loops[MAX_LOOP_DEPTH];
     int loop_depth;
+
+    int last_alloc_struct_idx;
 } Compiler;
 
 static Compiler C;
 
-static int add_local(const char *name, int is_str) {
+static int add_local(const char *name, int is_str, int struct_idx) {
     C.current_stack_frame += 8;
     m_strncpy(C.locals[C.local_count].name, name, 63);
     C.locals[C.local_count].stack_offset = C.current_stack_frame;
     C.locals[C.local_count].is_str = is_str;
+    C.locals[C.local_count].struct_idx = struct_idx;
     C.local_count++;
     return C.current_stack_frame;
 }
@@ -133,12 +138,29 @@ static int find_local_is_str(const char *name) {
     return 0;
 }
 
+static int find_local_struct_idx(const char *name) {
+    for (int i = (int)C.local_count - 1; i >= 0; i--) {
+        if (m_strcmp(C.locals[i].name, name) == 0) return C.locals[i].struct_idx;
+    }
+    return -1;
+}
+
+static void set_local_struct_idx(const char *name, int s_idx) {
+    for (int i = (int)C.local_count - 1; i >= 0; i--) {
+        if (m_strcmp(C.locals[i].name, name) == 0) {
+            C.locals[i].struct_idx = s_idx;
+            return;
+        }
+    }
+}
+
 static size_t add_global(const char *name, int is_str) {
     size_t off = C.data_len;
     C.data_len += 8;
     m_strncpy(C.globals[C.global_count].name, name, 63);
     C.globals[C.global_count].data_offset = off;
     C.globals[C.global_count].is_str = is_str;
+    C.globals[C.global_count].struct_idx = -1;
     C.global_count++;
     return off;
 }
@@ -169,6 +191,23 @@ static StructDef *find_struct(const char *name) {
         if (m_strcmp(C.structs[i].name, name) == 0) return &C.structs[i];
     }
     return 0;
+}
+
+static int find_struct_index(const char *name) {
+    for (size_t i = 0; i < C.struct_count; i++) {
+        if (m_strcmp(C.structs[i].name, name) == 0) return (int)i;
+    }
+    return -1;
+}
+
+static int find_field_offset_in_struct(int s_idx, const char *field_name) {
+    if (s_idx < 0 || s_idx >= (int)C.struct_count) return -1;
+    for (size_t f = 0; f < C.structs[s_idx].field_count; f++) {
+        if (m_strcmp(C.structs[s_idx].fields[f].name, field_name) == 0) {
+            return C.structs[s_idx].fields[f].offset;
+        }
+    }
+    return -1;
 }
 
 static int find_field_offset(const char *field_name) {
